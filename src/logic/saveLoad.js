@@ -34,6 +34,7 @@ export function serializeProject(project) {
           .filter(([id, direction]) => project.nodesById[id] && ['right', 'left', 'down', 'up'].includes(direction))
           .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })),
       ),
+      connectionSides: serializeConnectionSides(project.connectionSides, project.nodesById),
       checkedIds: [...(project.checkedIds ?? [])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
       collapsedIds: [...(project.collapsedIds ?? [])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
       positions,
@@ -133,6 +134,7 @@ export function parseProject(jsonText) {
   const positions = {};
   const textBlocks = {};
   const treeDirections = {};
+  const connectionSides = {};
 
   if (parsed.treeDirections && typeof parsed.treeDirections === 'object' && !Array.isArray(parsed.treeDirections)) {
     Object.entries(parsed.treeDirections).forEach(([rawId, direction]) => {
@@ -155,6 +157,29 @@ export function parseProject(jsonText) {
       if (nodesById[id] && Number.isFinite(x) && Number.isFinite(y)) {
         positions[id] = { x, y };
       }
+    });
+  }
+
+  if (parsed.connectionSides && typeof parsed.connectionSides === 'object' && !Array.isArray(parsed.connectionSides)) {
+    Object.entries(parsed.connectionSides).forEach(([rawParentId, rawChildren]) => {
+      const parentId = normalizeId(rawParentId);
+
+      if (!nodesById[parentId] || typeof rawChildren !== 'object' || Array.isArray(rawChildren)) {
+        return;
+      }
+
+      Object.entries(rawChildren).forEach(([rawChildId, side]) => {
+        const childId = normalizeId(rawChildId);
+
+        if (
+          nodesById[childId]
+          && nodesById[parentId].ingredients.includes(childId)
+          && ['right', 'left', 'down', 'up'].includes(side)
+        ) {
+          connectionSides[parentId] ??= {};
+          connectionSides[parentId][childId] = side;
+        }
+      });
     });
   }
 
@@ -194,8 +219,30 @@ export function parseProject(jsonText) {
       positions,
       textBlocks,
       treeDirections,
+      connectionSides,
     },
   };
+}
+
+function serializeConnectionSides(connectionSides = {}, nodesById = {}) {
+  return Object.fromEntries(
+    Object.entries(connectionSides)
+      .filter(([parentId]) => nodesById[parentId])
+      .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+      .map(([parentId, children]) => [
+        parentId,
+        Object.fromEntries(
+          Object.entries(children ?? {})
+            .filter(([childId, side]) => (
+              nodesById[childId]
+              && nodesById[parentId].ingredients.includes(childId)
+              && ['right', 'left', 'down', 'up'].includes(side)
+            ))
+            .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })),
+        ),
+      ])
+      .filter(([, children]) => Object.keys(children).length > 0),
+  );
 }
 
 function clampNodeSize(value, fallback) {

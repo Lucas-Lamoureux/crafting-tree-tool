@@ -27,6 +27,13 @@ const handlePositions = {
   },
 };
 
+const blockSides = [
+  { side: 'left', position: Position.Left, className: 'node-handle-left' },
+  { side: 'right', position: Position.Right, className: 'node-handle-right' },
+  { side: 'up', position: Position.Top, className: 'node-handle-top' },
+  { side: 'down', position: Position.Bottom, className: 'node-handle-bottom' },
+];
+
 export default function TreeNode({ data, selected }) {
   const handles = handlePositions[data.layoutDirection] ?? handlePositions.right;
 
@@ -47,11 +54,24 @@ export default function TreeNode({ data, selected }) {
         height: data.height,
       }}
     >
-      <Handle
-        className={`node-handle node-handle-in ${handles.targetClass}`}
-        type="target"
-        position={handles.target}
-      />
+      {data.isBlock ? (
+        blockSides.map(({ side, position, className }) => (
+          <Handle
+            key={`target-${side}`}
+            id={`target-${side}`}
+            className={`node-handle node-handle-in ${className}`}
+            type="target"
+            position={position}
+            data-side={side}
+          />
+        ))
+      ) : (
+        <Handle
+          className={`node-handle node-handle-in ${handles.targetClass}`}
+          type="target"
+          position={handles.target}
+        />
+      )}
       <label className="node-check nodrag" title="Toggle checked" onPointerDown={(event) => event.stopPropagation()}>
         <input
           type="checkbox"
@@ -64,11 +84,24 @@ export default function TreeNode({ data, selected }) {
       {data.ingredientCount > 0 && (
         <span className="node-badge">{data.collapsed ? '+' : data.ingredientCount}</span>
       )}
-      <Handle
-        className={`node-handle node-handle-out ${handles.sourceClass}`}
-        type="source"
-        position={handles.source}
-      />
+      {data.isBlock ? (
+        blockSides.map(({ side, position, className }) => (
+          <Handle
+            key={`source-${side}`}
+            id={`source-${side}`}
+            className={`node-handle node-handle-out ${className}`}
+            type="source"
+            position={position}
+            data-side={side}
+          />
+        ))
+      ) : (
+        <Handle
+          className={`node-handle node-handle-out ${handles.sourceClass}`}
+          type="source"
+          position={handles.source}
+        />
+      )}
     </div>
   );
 }

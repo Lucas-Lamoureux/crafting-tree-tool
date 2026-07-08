@@ -33,7 +33,7 @@ export function addNode(nodesById, id, options = {}) {
   };
 }
 
-export function deriveEdges(nodesById, collapsedIds = new Set(), rootId = null) {
+export function deriveEdges(nodesById, collapsedIds = new Set(), rootId = null, connectionSides = {}) {
   const visible = getVisibleIds(nodesById, rootId, collapsedIds);
   const visibleSet = new Set(visible);
   const edges = [];
@@ -46,10 +46,12 @@ export function deriveEdges(nodesById, collapsedIds = new Set(), rootId = null) 
     const parent = nodesById[parentId];
     parent.ingredients.forEach((ingredientId) => {
       if (visibleSet.has(ingredientId)) {
+        const side = connectionSides[parentId]?.[ingredientId];
         edges.push({
           id: `${parentId}->${ingredientId}`,
           source: parentId,
           target: ingredientId,
+          sourceHandle: nodesById[parentId]?.isBlock && side ? `source-${side}` : undefined,
           type: 'straight',
           animated: false,
           style: { strokeWidth: 1.8 },

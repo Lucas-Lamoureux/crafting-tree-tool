@@ -22,6 +22,7 @@ function TreeCanvasInner({
   nodesById,
   collapsedIds,
   rootId,
+  connectionSides,
   selectedId,
   selectedIds,
   contextMenu,
@@ -46,9 +47,9 @@ function TreeCanvasInner({
   const connectionHandledRef = useRef(false);
   const connectionCleanupRef = useRef(null);
 
-  const beginConnectorFallback = useCallback((id) => {
+  const beginConnectorFallback = useCallback((id, side = null) => {
     connectionCleanupRef.current?.();
-    connectionStartRef.current = id;
+    connectionStartRef.current = { id, side };
     connectionHandledRef.current = false;
 
     let finished = false;
@@ -58,7 +59,8 @@ function TreeCanvasInner({
       }
       finished = true;
 
-      const sourceId = connectionStartRef.current;
+      const source = connectionStartRef.current;
+      const sourceId = source?.id;
       const point = 'changedTouches' in event
         ? event.changedTouches[0]
         : event;
@@ -77,7 +79,7 @@ function TreeCanvasInner({
         const targetId = targetNode?.getAttribute('data-id');
 
         if (targetId && targetId !== sourceId) {
-          onConnectIngredient(sourceId, targetId);
+          onConnectIngredient(sourceId, targetId, source.side);
         }
 
         connectionStartRef.current = null;
@@ -105,15 +107,16 @@ function TreeCanvasInner({
 
     const sourceNode = sourceHandle.closest('.react-flow__node');
     const sourceId = sourceNode?.getAttribute('data-id');
+    const sourceSide = sourceHandle.getAttribute('data-side');
 
     if (sourceId) {
-      beginConnectorFallback(sourceId);
+      beginConnectorFallback(sourceId, sourceSide);
     }
   }, [beginConnectorFallback]);
 
   const edges = useMemo(
-    () => deriveEdges(nodesById, collapsedIds, rootId),
-    [nodesById, collapsedIds, rootId],
+    () => deriveEdges(nodesById, collapsedIds, rootId, connectionSides),
+    [nodesById, collapsedIds, rootId, connectionSides],
   );
 
   const decoratedNodes = useMemo(
@@ -269,16 +272,19 @@ function TreeCanvasInner({
 
     connectionHandledRef.current = true;
     connectionStartRef.current = null;
-    onConnectIngredient(connection.source, connection.target);
+    onConnectIngredient(connection.source, connection.target, parseHandleSide(connection.sourceHandle));
   }, [onConnectIngredient]);
 
   const handleConnectStart = useCallback((_, params) => {
-    connectionStartRef.current = params?.handleType === 'source' ? params.nodeId : null;
+    connectionStartRef.current = params?.handleType === 'source'
+      ? { id: params.nodeId, side: parseHandleSide(params.handleId) }
+      : null;
     connectionHandledRef.current = false;
   }, []);
 
   const handleConnectEnd = useCallback((event) => {
-    const sourceId = connectionStartRef.current;
+    const source = connectionStartRef.current;
+    const sourceId = source?.id;
 
     if (!sourceId || connectionHandledRef.current) {
       connectionStartRef.current = null;
@@ -303,7 +309,7 @@ function TreeCanvasInner({
       const targetId = targetNode?.getAttribute('data-id');
 
       if (targetId && targetId !== sourceId) {
-        onConnectIngredient(sourceId, targetId);
+        onConnectIngredient(sourceId, targetId, source.side);
       }
 
       connectionStartRef.current = null;
@@ -373,6 +379,12 @@ function TreeCanvasInner({
       />
     </main>
   );
+}
+
+function parseHandleSide(handleId) {
+  const side = String(handleId ?? '').replace(/^source-/, '').replace(/^target-/, '');
+
+  return ['right', 'left', 'down', 'up'].includes(side) ? side : null;
 }
 
 export default function TreeCanvas(props) {

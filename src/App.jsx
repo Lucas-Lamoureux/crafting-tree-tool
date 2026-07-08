@@ -30,6 +30,102 @@ function initialNodesById() {
   );
 }
 
+function removeConnectionSide(connectionSides, parentId, childId) {
+  const parentSides = connectionSides[parentId];
+
+  if (!parentSides?.[childId]) {
+    return connectionSides;
+  }
+
+  const nextParentSides = { ...parentSides };
+  delete nextParentSides[childId];
+
+  if (Object.keys(nextParentSides).length === 0) {
+    const { [parentId]: _removed, ...rest } = connectionSides;
+    return rest;
+  }
+
+  return {
+    ...connectionSides,
+    [parentId]: nextParentSides,
+  };
+}
+
+function removeNodeConnectionSides(connectionSides, nodeId) {
+  const next = {};
+
+  Object.entries(connectionSides).forEach(([parentId, children]) => {
+    if (parentId === nodeId) {
+      return;
+    }
+
+    const keptChildren = Object.fromEntries(
+      Object.entries(children ?? {}).filter(([childId]) => childId !== nodeId),
+    );
+
+    if (Object.keys(keptChildren).length > 0) {
+      next[parentId] = keptChildren;
+    }
+  });
+
+  return next;
+}
+
+function renameConnectionSideNode(connectionSides, oldId, newId) {
+  const next = {};
+
+  Object.entries(connectionSides).forEach(([parentId, children]) => {
+    const nextParentId = parentId === oldId ? newId : parentId;
+    const nextChildren = {};
+
+    Object.entries(children ?? {}).forEach(([childId, side]) => {
+      nextChildren[childId === oldId ? newId : childId] = side;
+    });
+
+    next[nextParentId] = nextChildren;
+  });
+
+  return next;
+}
+
+function getConnectionAnchor(parentId, childId, side, flowNodes, nodesById) {
+  const parentFlowNode = flowNodes.find((node) => node.id === parentId);
+  const parentPosition = parentFlowNode?.position ?? { x: 0, y: 0 };
+  const parent = nodesById[parentId] ?? {};
+  const child = nodesById[childId] ?? {};
+  const parentWidth = parent.width ?? 55;
+  const parentHeight = parent.height ?? 32;
+  const childWidth = child.width ?? 55;
+  const childHeight = child.height ?? 32;
+  const sideGap = 56;
+
+  if (side === 'left') {
+    return {
+      x: parentPosition.x - sideGap - childWidth,
+      y: parentPosition.y + parentHeight / 2 - childHeight / 2,
+    };
+  }
+
+  if (side === 'up') {
+    return {
+      x: parentPosition.x + parentWidth / 2 - childWidth / 2,
+      y: parentPosition.y - sideGap - childHeight,
+    };
+  }
+
+  if (side === 'down') {
+    return {
+      x: parentPosition.x + parentWidth / 2 - childWidth / 2,
+      y: parentPosition.y + parentHeight + sideGap,
+    };
+  }
+
+  return {
+    x: parentPosition.x + parentWidth + sideGap,
+    y: parentPosition.y + parentHeight / 2 - childHeight / 2,
+  };
+}
+
 export default function App() {
   const [nodesById, setNodesById] = useState(initialNodesById);
   const [textBlocks, setTextBlocks] = useState({});
@@ -38,6 +134,7 @@ export default function App() {
   const [checkedIds, setCheckedIds] = useState(() => new Set());
   const [manualPositions, setManualPositions] = useState({});
   const [treeDirections, setTreeDirections] = useState({});
+  const [connectionSides, setConnectionSides] = useState({});
   const [selectedId, setSelectedId] = useState(initialTree.rootId);
   const [selectedIds, setSelectedIds] = useState(() => new Set([initialTree.rootId]));
   const [pendingIngredientParentId, setPendingIngredientParentId] = useState(null);
@@ -64,8 +161,25 @@ export default function App() {
       });
     });
 
+    Object.entries(connectionSides).forEach(([parentId, children]) => {
+      if (!nodesById[parentId]?.isBlock) {
+        return;
+      }
+
+      Object.entries(children ?? {}).forEach(([childId, side]) => {
+        if (!nodesById[childId]) {
+          return;
+        }
+
+        next[childId] = side;
+        getDescendants(nodesById, childId, collapsedIds).forEach((id) => {
+          next[id] = side;
+        });
+      });
+    });
+
     return next;
-  }, [collapsedIds, nodesById, treeDirections]);
+  }, [collapsedIds, connectionSides, nodesById, treeDirections]);
 
   const flowNodes = useMemo(() => {
     const rootDirection = treeDirections[rootId] ?? 'right';
@@ -92,6 +206,7 @@ export default function App() {
           selected: selectedIds.has(node.id),
           ingredientCheckStatus,
           layoutDirection: directionByNode[node.id] ?? 'right',
+          isBlock: Boolean(nodesById[node.id]?.isBlock),
           width: nodesById[node.id]?.width,
           height: nodesById[node.id]?.height,
         },
@@ -147,7 +262,7 @@ export default function App() {
     return true;
   }, [flowNodes]);
 
-  const connectIngredient = useCallback((parentId, ingredientId) => {
+  const connectIngredient = useCallback((parentId, ingredientId, side = null) => {
     if (!nodesById[parentId] || !nodesById[ingredientId]) {
       setMessage('Text blocks cannot be connected.');
       return;
@@ -156,6 +271,7 @@ export default function App() {
     if (nodesById[parentId]?.ingredients.includes(ingredientId)) {
       const result = removeIngredient(nodesById, parentId, ingredientId);
       if (setResult(result, `Removed ${ingredientId} from ${parentId}.`, { preservePositions: true })) {
+        setConnectionSides((current) => removeConnectionSide(current, parentId, ingredientId));
         setSelectedId(parentId);
         setPendingIngredientParentId(null);
       }
@@ -165,17 +281,42 @@ export default function App() {
     const result = addIngredient(nodesById, parentId, ingredientId);
 
     if (setResult(result, `Added ${ingredientId} to ${parentId}.`)) {
+      if (nodesById[parentId]?.isBlock && side) {
+        setConnectionSides((current) => ({
+          ...current,
+          [parentId]: {
+            ...(current[parentId] ?? {}),
+            [ingredientId]: side,
+          },
+        }));
+        setTreeDirections((current) => ({
+          ...current,
+          [ingredientId]: side,
+        }));
+        setManualPositions((current) => ({
+          ...current,
+          ...layoutSubtreePositions(
+            result.nodesById,
+            ingredientId,
+            collapsedIds,
+            side,
+            getConnectionAnchor(parentId, ingredientId, side, flowNodes, nodesById),
+          ),
+        }));
+      }
       setSelectedId(ingredientId);
       setPendingIngredientParentId(null);
     }
-  }, [nodesById, setResult]);
+  }, [collapsedIds, flowNodes, nodesById, setResult]);
 
   const disconnectIngredient = useCallback((parentId, ingredientId) => {
-    setResult(
+    if (setResult(
       removeIngredient(nodesById, parentId, ingredientId),
       `Removed ${ingredientId} from ${parentId}.`,
       { preservePositions: true },
-    );
+    )) {
+      setConnectionSides((current) => removeConnectionSide(current, parentId, ingredientId));
+    }
   }, [nodesById, setResult]);
 
   const removeNodeById = useCallback((id) => {
@@ -194,6 +335,7 @@ export default function App() {
         const { [id]: _removed, ...rest } = current;
         return rest;
       });
+      setConnectionSides((current) => removeNodeConnectionSides(current, id));
       setMessage(`Deleted ${id}.`);
       return;
     }
@@ -224,6 +366,7 @@ export default function App() {
         const { [id]: _removed, ...rest } = current;
         return rest;
       });
+      setConnectionSides((current) => removeNodeConnectionSides(current, id));
       setCheckedIds((current) => {
         const next = new Set(current);
         next.delete(id);
@@ -271,6 +414,13 @@ export default function App() {
         });
         return next;
       });
+      setConnectionSides((current) => {
+        let next = current;
+        deletedIds.forEach((id) => {
+          next = removeNodeConnectionSides(next, id);
+        });
+        return next;
+      });
       setMessage(`Deleted ${label}.`);
       return;
     }
@@ -299,6 +449,13 @@ export default function App() {
         const next = { ...current };
         deletedIds.forEach((id) => {
           delete next[id];
+        });
+        return next;
+      });
+      setConnectionSides((current) => {
+        let next = current;
+        deletedIds.forEach((id) => {
+          next = removeNodeConnectionSides(next, id);
         });
         return next;
       });
@@ -367,11 +524,13 @@ export default function App() {
     if (action === 'remove') {
       const ingredientId = normalizeId(window.prompt(`Remove which ingredient from ${id}?`));
       if (!ingredientId) return;
-      setResult(
+      if (setResult(
         removeIngredient(nodesById, id, ingredientId),
         `Removed ${ingredientId} from ${id}.`,
         { preservePositions: true },
-      );
+      )) {
+        setConnectionSides((current) => removeConnectionSide(current, id, ingredientId));
+      }
     }
 
     if (action === 'resize-block') {
@@ -431,6 +590,7 @@ export default function App() {
           const { [id]: oldDirection, ...rest } = current;
           return oldDirection ? { ...rest, [nextId]: oldDirection } : rest;
         });
+        setConnectionSides((current) => renameConnectionSideNode(current, id, nextId));
         setCheckedIds((current) => {
           const next = new Set(current);
           if (next.delete(id)) {
@@ -729,12 +889,13 @@ export default function App() {
         collapsedIds,
         positions,
         treeDirections,
+        connectionSides,
         textBlocks: textBlocksToSave,
       }),
     );
     setSaveModalOpen(false);
     setMessage(`Project saved as ${filename}.`);
-  }, [checkedIds, collapsedIds, flowNodes, nodesById, rootId, textBlocks, treeDirections]);
+  }, [checkedIds, collapsedIds, connectionSides, flowNodes, nodesById, rootId, textBlocks, treeDirections]);
 
   const handleLoad = useCallback((event) => {
     const file = event.target.files?.[0];
@@ -757,6 +918,7 @@ export default function App() {
       setCollapsedIds(new Set(result.project.collapsedIds ?? []));
       setManualPositions(result.project.positions ?? {});
       setTreeDirections(result.project.treeDirections ?? {});
+      setConnectionSides(result.project.connectionSides ?? {});
       setMessage(`Loaded ${file.name}.`);
     });
 
@@ -794,6 +956,7 @@ export default function App() {
           flowNodes={flowNodes}
           nodesById={nodesById}
           rootId={rootId}
+          connectionSides={connectionSides}
           collapsedIds={collapsedIds}
           selectedId={selectedId}
           selectedIds={selectedIds}
