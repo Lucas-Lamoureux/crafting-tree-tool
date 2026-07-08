@@ -3,6 +3,7 @@ import TreeCanvas from './components/TreeCanvas.jsx';
 import Toolbar from './components/Toolbar.jsx';
 import PropertyPanel from './components/PropertyPanel.jsx';
 import AddTileModal from './components/AddTileModal.jsx';
+import AddIngredientsModal from './components/AddIngredientsModal.jsx';
 import SaveProjectModal from './components/SaveProjectModal.jsx';
 import { initialTree } from './data/initialTree.js';
 import { layoutSubtreePositions, layoutTree } from './logic/treeLayout.js';
@@ -39,6 +40,7 @@ export default function App() {
   const [selectedId, setSelectedId] = useState(initialTree.rootId);
   const [selectedIds, setSelectedIds] = useState(() => new Set([initialTree.rootId]));
   const [pendingIngredientParentId, setPendingIngredientParentId] = useState(null);
+  const [ingredientModalParentId, setIngredientModalParentId] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const [addTileModalOpen, setAddTileModalOpen] = useState(false);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
@@ -308,6 +310,7 @@ export default function App() {
     function handleKeyDown(event) {
       if (event.key === 'Escape') {
         setPendingIngredientParentId(null);
+        setIngredientModalParentId(null);
         setAddTileModalOpen(false);
         setSaveModalOpen(false);
       }
@@ -349,6 +352,11 @@ export default function App() {
     if (action === 'add') {
       setPendingIngredientParentId(id);
       setMessage(`Click an existing ID to add it as an ingredient of ${id}.`);
+    }
+
+    if (action === 'add-ingredients') {
+      setIngredientModalParentId(id);
+      setMessage(`Adding ingredients to ${id}.`);
     }
 
     if (action === 'remove') {
@@ -457,6 +465,37 @@ export default function App() {
       setAddTileModalOpen(false);
     }
   }, [nodesById, setResult]);
+
+  const handleCreateIngredients = useCallback((parentId, ingredientIds) => {
+    let nextNodesById = nodesById;
+
+    for (const ingredientId of ingredientIds) {
+      const result = addIngredient(nextNodesById, parentId, ingredientId);
+
+      if (!result.ok) {
+        setMessage(result.message);
+        return;
+      }
+
+      nextNodesById = result.nodesById;
+    }
+
+    const direction = treeDirections[parentId] ?? directionByNode[parentId] ?? 'right';
+    const anchor = flowNodes.find((node) => node.id === parentId)?.position
+      ?? manualPositions[parentId]
+      ?? { x: 0, y: 0 };
+    const positions = layoutSubtreePositions(nextNodesById, parentId, collapsedIds, direction, anchor);
+
+    setNodesById(nextNodesById);
+    setManualPositions((current) => ({
+      ...current,
+      ...positions,
+    }));
+    setSelectedId(parentId);
+    setSelectedIds(new Set([parentId]));
+    setIngredientModalParentId(null);
+    setMessage(`Added ${ingredientIds.length} ingredient${ingredientIds.length === 1 ? '' : 's'} to ${parentId}.`);
+  }, [collapsedIds, directionByNode, flowNodes, manualPositions, nodesById, treeDirections]);
 
   const handleAddTextBlock = useCallback(() => {
     const existingIds = new Set([...Object.keys(nodesById), ...Object.keys(textBlocks)]);
@@ -775,6 +814,14 @@ export default function App() {
         existingIds={new Set(Object.keys(nodesById))}
         onCancel={() => setAddTileModalOpen(false)}
         onCreate={handleCreateNode}
+      />
+
+      <AddIngredientsModal
+        open={Boolean(ingredientModalParentId)}
+        parentId={ingredientModalParentId}
+        nodesById={nodesById}
+        onCancel={() => setIngredientModalParentId(null)}
+        onCreate={handleCreateIngredients}
       />
 
       <SaveProjectModal

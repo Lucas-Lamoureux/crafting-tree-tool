@@ -589,6 +589,10 @@ button:disabled {
   box-shadow: 0 22px 70px rgba(0, 0, 0, 0.45);
 }
 
+.ingredient-modal {
+  width: min(520px, calc(100vw - 32px));
+}
+
 .tile-modal header,
 .tile-modal footer {
   display: flex;
@@ -630,6 +634,44 @@ button:disabled {
   padding: 0 10px;
   background: #1f2927;
   color: #e7eee9;
+}
+
+.ingredient-modal-parent {
+  color: #a4b6b0;
+  font-size: 13px;
+}
+
+.ingredient-rows {
+  display: grid;
+  gap: 8px;
+  max-height: min(44vh, 340px);
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.ingredient-row {
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #3c4d49;
+  border-radius: 7px;
+  background: #202b29;
+}
+
+.ingredient-row button {
+  height: 30px;
+}
+
+.ingredient-row em {
+  grid-column: 2 / -1;
+  color: #ef8a83;
+  font-size: 12px;
+  font-style: normal;
+}
+
+.secondary-action {
+  justify-self: start;
 }
 
 .modal-error {
