@@ -6,6 +6,8 @@ const HORIZONTAL_GAP = 56;
 const VERTICAL_GAP = 36;
 const SIBLING_GAP = 2;
 const GROUP_GAP = 4;
+const TILE_LABEL_PADDING = 26;
+const AVERAGE_CHARACTER_WIDTH = 7.4;
 
 export const nodeSize = {
   width: NODE_WIDTH,
@@ -188,9 +190,8 @@ function layoutGroupedSubtree(nodesById, rootId, direction = 'right') {
     (tier?.length ?? 0) > (tiers[widest]?.length ?? 0) ? depth : widest
   ), 0);
   const crossPositions = {};
-  const crossSize = isVerticalLayout(layoutDirection) ? NODE_WIDTH : NODE_HEIGHT;
 
-  assignTierByGroups(tiers, parentById, widestDepth, crossPositions, crossSize);
+  assignTierByGroups(nodesById, tiers, parentById, widestDepth, crossPositions, layoutDirection);
 
   for (let depth = widestDepth - 1; depth >= 0; depth -= 1) {
     (tiers[depth] ?? []).forEach((id) => {
@@ -205,18 +206,18 @@ function layoutGroupedSubtree(nodesById, rootId, direction = 'right') {
   }
 
   for (let depth = widestDepth + 1; depth < tiers.length; depth += 1) {
-    assignTierBelowParents(nodesById, tiers, parentById, depth, crossPositions, crossSize);
+    assignTierBelowParents(nodesById, tiers, parentById, depth, crossPositions, layoutDirection);
   }
 
   tiers.forEach((tier, depth) => {
-    assignMissingTierPositions(tier ?? [], crossPositions, crossSize);
+    assignMissingTierPositions(nodesById, tier ?? [], crossPositions, layoutDirection);
   });
 
   const positioned = {};
 
   tiers.forEach((tier, depth) => {
     (tier ?? []).forEach((id) => {
-      positioned[id] = toPosition(depth, crossPositions[id] ?? 0, layoutDirection);
+      positioned[id] = toPosition(nodesById, id, depth, crossPositions[id] ?? 0, layoutDirection);
     });
   });
 
@@ -227,6 +228,35 @@ function isVerticalLayout(direction) {
   return direction === 'up' || direction === 'down';
 }
 
+function getNodeWidth(nodesById, id) {
+  const node = nodesById[id];
+
+  if (Number.isFinite(node?.width)) {
+    return node.width;
+  }
+
+  return Math.max(
+    NODE_WIDTH,
+    Math.ceil(String(id).length * AVERAGE_CHARACTER_WIDTH + TILE_LABEL_PADDING),
+  );
+}
+
+function getNodeHeight(nodesById, id) {
+  const node = nodesById[id];
+
+  if (Number.isFinite(node?.height)) {
+    return node.height;
+  }
+
+  return NODE_HEIGHT;
+}
+
+function getCrossSize(nodesById, id, direction) {
+  return isVerticalLayout(direction)
+    ? getNodeWidth(nodesById, id)
+    : getNodeHeight(nodesById, id);
+}
+
 function getChildrenInTier(nodesById, parentId, tier = [], parentById = {}) {
   const tierSet = new Set(tier);
 
@@ -235,7 +265,7 @@ function getChildrenInTier(nodesById, parentId, tier = [], parentById = {}) {
   ));
 }
 
-function assignTierByGroups(tiers, parentById, depth, crossPositions, crossSize) {
+function assignTierByGroups(nodesById, tiers, parentById, depth, crossPositions, direction) {
   const tier = tiers[depth] ?? [];
 
   if (tier.length === 0) {
@@ -273,6 +303,8 @@ function assignTierByGroups(tiers, parentById, depth, crossPositions, crossSize)
     }
 
     group.forEach((id, index) => {
+      const crossSize = getCrossSize(nodesById, id, direction);
+
       if (index > 0) {
         cursor += SIBLING_GAP;
       }
@@ -282,10 +314,10 @@ function assignTierByGroups(tiers, parentById, depth, crossPositions, crossSize)
     });
   });
 
-  centerAssignedTier(tier, crossPositions);
+  centerAssignedTier(nodesById, tier, crossPositions, direction);
 }
 
-function assignTierBelowParents(nodesById, tiers, parentById, depth, crossPositions, crossSize) {
+function assignTierBelowParents(nodesById, tiers, parentById, depth, crossPositions, direction) {
   const tier = tiers[depth] ?? [];
   const previousTier = tiers[depth - 1] ?? [];
   let previousEnd = -Infinity;
@@ -297,7 +329,10 @@ function assignTierBelowParents(nodesById, tiers, parentById, depth, crossPositi
       return;
     }
 
-    const groupWidth = children.length * crossSize + Math.max(0, children.length - 1) * SIBLING_GAP;
+    const groupWidth = children.reduce(
+      (total, childId, index) => total + getCrossSize(nodesById, childId, direction) + (index > 0 ? SIBLING_GAP : 0),
+      0,
+    );
     const parentCenter = crossPositions[parentId] ?? 0;
     let start = parentCenter - groupWidth / 2;
 
@@ -305,21 +340,29 @@ function assignTierBelowParents(nodesById, tiers, parentById, depth, crossPositi
       start = Math.max(start, previousEnd + GROUP_GAP);
     }
 
+    let cursor = start;
+
     children.forEach((childId, index) => {
-      crossPositions[childId] = start + crossSize / 2 + index * (crossSize + SIBLING_GAP);
+      const crossSize = getCrossSize(nodesById, childId, direction);
+
+      if (index > 0) {
+        cursor += SIBLING_GAP;
+      }
+
+      crossPositions[childId] = cursor + crossSize / 2;
+      cursor += crossSize;
     });
 
     previousEnd = start + groupWidth;
   });
 }
 
-function assignMissingTierPositions(tier, crossPositions, crossSize) {
+function assignMissingTierPositions(nodesById, tier, crossPositions, direction) {
   let cursor = Math.max(
     0,
     ...tier
-      .map((id) => crossPositions[id])
-      .filter((position) => Number.isFinite(position))
-      .map((position) => position + crossSize / 2 + GROUP_GAP),
+      .filter((id) => Number.isFinite(crossPositions[id]))
+      .map((id) => crossPositions[id] + getCrossSize(nodesById, id, direction) / 2 + GROUP_GAP),
   );
 
   tier.forEach((id) => {
@@ -327,21 +370,29 @@ function assignMissingTierPositions(tier, crossPositions, crossSize) {
       return;
     }
 
+    const crossSize = getCrossSize(nodesById, id, direction);
     crossPositions[id] = cursor + crossSize / 2;
     cursor += crossSize + SIBLING_GAP;
   });
 }
 
-function centerAssignedTier(tier, crossPositions) {
-  const positions = tier
-    .map((id) => crossPositions[id])
-    .filter((position) => Number.isFinite(position));
+function centerAssignedTier(nodesById, tier, crossPositions, direction) {
+  const bounds = tier
+    .filter((id) => Number.isFinite(crossPositions[id]))
+    .map((id) => {
+      const halfSize = getCrossSize(nodesById, id, direction) / 2;
 
-  if (positions.length === 0) {
+      return {
+        start: crossPositions[id] - halfSize,
+        end: crossPositions[id] + halfSize,
+      };
+    });
+
+  if (bounds.length === 0) {
     return;
   }
 
-  const offset = (Math.min(...positions) + Math.max(...positions)) / 2;
+  const offset = (Math.min(...bounds.map((bound) => bound.start)) + Math.max(...bounds.map((bound) => bound.end))) / 2;
 
   tier.forEach((id) => {
     if (Number.isFinite(crossPositions[id])) {
@@ -350,30 +401,30 @@ function centerAssignedTier(tier, crossPositions) {
   });
 }
 
-function toPosition(depth, crossCenter, direction) {
+function toPosition(nodesById, id, depth, crossCenter, direction) {
   if (direction === 'left') {
     return {
       x: -depth * (NODE_WIDTH + HORIZONTAL_GAP),
-      y: crossCenter - NODE_HEIGHT / 2,
+      y: crossCenter - getNodeHeight(nodesById, id) / 2,
     };
   }
 
   if (direction === 'down') {
     return {
-      x: crossCenter - NODE_WIDTH / 2,
+      x: crossCenter - getNodeWidth(nodesById, id) / 2,
       y: depth * (NODE_HEIGHT + VERTICAL_GAP),
     };
   }
 
   if (direction === 'up') {
     return {
-      x: crossCenter - NODE_WIDTH / 2,
+      x: crossCenter - getNodeWidth(nodesById, id) / 2,
       y: -depth * (NODE_HEIGHT + VERTICAL_GAP),
     };
   }
 
   return {
     x: depth * (NODE_WIDTH + HORIZONTAL_GAP),
-    y: crossCenter - NODE_HEIGHT / 2,
+    y: crossCenter - getNodeHeight(nodesById, id) / 2,
   };
 }
