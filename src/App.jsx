@@ -5,12 +5,13 @@ import PropertyPanel from './components/PropertyPanel.jsx';
 import AddTileModal from './components/AddTileModal.jsx';
 import SaveProjectModal from './components/SaveProjectModal.jsx';
 import { initialTree } from './data/initialTree.js';
-import { layoutTree } from './logic/treeLayout.js';
+import { layoutSubtreePositions, layoutTree } from './logic/treeLayout.js';
 import {
   addIngredient,
   addNode,
   deleteNode,
   deleteNodes,
+  getDescendants,
   normalizeId,
   removeIngredient,
   renameNode,
@@ -34,7 +35,7 @@ export default function App() {
   const [collapsedIds, setCollapsedIds] = useState(() => new Set());
   const [checkedIds, setCheckedIds] = useState(() => new Set());
   const [manualPositions, setManualPositions] = useState({});
-  const [layoutDirection, setLayoutDirection] = useState('right');
+  const [treeDirections, setTreeDirections] = useState({});
   const [selectedId, setSelectedId] = useState(initialTree.rootId);
   const [selectedIds, setSelectedIds] = useState(() => new Set([initialTree.rootId]));
   const [pendingIngredientParentId, setPendingIngredientParentId] = useState(null);
@@ -45,8 +46,26 @@ export default function App() {
   const flowRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  const directionByNode = useMemo(() => {
+    const next = {};
+
+    Object.entries(treeDirections).forEach(([treeRootId, direction]) => {
+      if (!nodesById[treeRootId]) {
+        return;
+      }
+
+      next[treeRootId] = direction;
+      getDescendants(nodesById, treeRootId, collapsedIds).forEach((id) => {
+        next[id] = direction;
+      });
+    });
+
+    return next;
+  }, [collapsedIds, nodesById, treeDirections]);
+
   const flowNodes = useMemo(() => {
-    const laidOutNodes = layoutTree(nodesById, rootId, collapsedIds, manualPositions, layoutDirection);
+    const rootDirection = treeDirections[rootId] ?? 'right';
+    const laidOutNodes = layoutTree(nodesById, rootId, collapsedIds, manualPositions, rootDirection);
 
     const treeNodes = laidOutNodes.map((node) => {
       const ingredients = nodesById[node.id]?.ingredients ?? [];
@@ -68,7 +87,7 @@ export default function App() {
           checked: checkedIds.has(node.id),
           selected: selectedIds.has(node.id),
           ingredientCheckStatus,
-          layoutDirection,
+          layoutDirection: directionByNode[node.id] ?? 'right',
         },
       };
     });
@@ -86,7 +105,7 @@ export default function App() {
 
     return [...treeNodes, ...textBlockNodes];
   },
-    [checkedIds, collapsedIds, layoutDirection, manualPositions, nodesById, rootId, selectedIds, textBlocks],
+    [checkedIds, collapsedIds, directionByNode, manualPositions, nodesById, rootId, selectedIds, textBlocks, treeDirections],
   );
 
   const edgeCount = useMemo(
@@ -165,6 +184,10 @@ export default function App() {
         const { [id]: _removed, ...rest } = current;
         return rest;
       });
+      setTreeDirections((current) => {
+        const { [id]: _removed, ...rest } = current;
+        return rest;
+      });
       setMessage(`Deleted ${id}.`);
       return;
     }
@@ -188,6 +211,10 @@ export default function App() {
         return next;
       });
       setManualPositions((current) => {
+        const { [id]: _removed, ...rest } = current;
+        return rest;
+      });
+      setTreeDirections((current) => {
         const { [id]: _removed, ...rest } = current;
         return rest;
       });
@@ -231,6 +258,13 @@ export default function App() {
         });
         return next;
       });
+      setTreeDirections((current) => {
+        const next = { ...current };
+        deletedIds.forEach((id) => {
+          delete next[id];
+        });
+        return next;
+      });
       setMessage(`Deleted ${label}.`);
       return;
     }
@@ -249,6 +283,13 @@ export default function App() {
         return next;
       });
       setManualPositions((current) => {
+        const next = { ...current };
+        deletedIds.forEach((id) => {
+          delete next[id];
+        });
+        return next;
+      });
+      setTreeDirections((current) => {
         const next = { ...current };
         deletedIds.forEach((id) => {
           delete next[id];
@@ -293,6 +334,18 @@ export default function App() {
       return;
     }
 
+    const relayoutTree = (treeRootId, direction) => {
+      const anchor = flowNodes.find((node) => node.id === treeRootId)?.position
+        ?? manualPositions[treeRootId]
+        ?? { x: 0, y: 0 };
+      const positions = layoutSubtreePositions(nodesById, treeRootId, collapsedIds, direction, anchor);
+
+      setManualPositions((current) => ({
+        ...current,
+        ...positions,
+      }));
+    };
+
     if (action === 'add') {
       setPendingIngredientParentId(id);
       setMessage(`Click an existing ID to add it as an ingredient of ${id}.`);
@@ -306,6 +359,24 @@ export default function App() {
         `Removed ${ingredientId} from ${id}.`,
         { preservePositions: true },
       );
+    }
+
+    if (action.startsWith('direction-')) {
+      const direction = action.replace('direction-', '');
+
+      setTreeDirections((current) => ({
+        ...current,
+        [id]: direction,
+      }));
+      relayoutTree(id, direction);
+      setMessage(`${id} tree now grows ${direction}.`);
+    }
+
+    if (action === 'auto-layout') {
+      const direction = treeDirections[id] ?? directionByNode[id] ?? 'right';
+
+      relayoutTree(id, direction);
+      setMessage(`Auto-layout rebuilt ${id}'s tree.`);
     }
 
     if (action === 'rename') {
@@ -332,6 +403,10 @@ export default function App() {
           const { [id]: oldPosition, ...rest } = current;
           return oldPosition ? { ...rest, [nextId]: oldPosition } : rest;
         });
+        setTreeDirections((current) => {
+          const { [id]: oldDirection, ...rest } = current;
+          return oldDirection ? { ...rest, [nextId]: oldDirection } : rest;
+        });
         setCheckedIds((current) => {
           const next = new Set(current);
           if (next.delete(id)) {
@@ -352,7 +427,20 @@ export default function App() {
     }
 
     setContextMenu(null);
-  }, [contextMenu, nodesById, removeNodeById, removeNodesByIds, rootId, selectedIds, setResult]);
+  }, [
+    collapsedIds,
+    contextMenu,
+    directionByNode,
+    flowNodes,
+    manualPositions,
+    nodesById,
+    removeNodeById,
+    removeNodesByIds,
+    rootId,
+    selectedIds,
+    setResult,
+    treeDirections,
+  ]);
 
   const handleAddNode = useCallback(() => {
     setAddTileModalOpen(true);
@@ -570,13 +658,13 @@ export default function App() {
         checkedIds,
         collapsedIds,
         positions,
-        layoutDirection,
+        treeDirections,
         textBlocks: textBlocksToSave,
       }),
     );
     setSaveModalOpen(false);
     setMessage(`Project saved as ${filename}.`);
-  }, [checkedIds, collapsedIds, flowNodes, layoutDirection, nodesById, rootId, textBlocks]);
+  }, [checkedIds, collapsedIds, flowNodes, nodesById, rootId, textBlocks, treeDirections]);
 
   const handleLoad = useCallback((event) => {
     const file = event.target.files?.[0];
@@ -598,7 +686,7 @@ export default function App() {
       setSelectedIds(new Set(result.project.rootId ? [result.project.rootId] : []));
       setCollapsedIds(new Set(result.project.collapsedIds ?? []));
       setManualPositions(result.project.positions ?? {});
-      setLayoutDirection(result.project.layoutDirection ?? 'right');
+      setTreeDirections(result.project.treeDirections ?? {});
       setMessage(`Loaded ${file.name}.`);
     });
 
@@ -617,19 +705,6 @@ export default function App() {
     });
   }, []);
 
-  const handleRelayout = useCallback(() => {
-    setManualPositions({});
-    window.requestAnimationFrame(() => flowRef.current?.fitView({ padding: 0.25, duration: 350 }));
-    setMessage('Tree layout rebuilt.');
-  }, []);
-
-  const handleLayoutDirectionChange = useCallback((direction) => {
-    setLayoutDirection(direction);
-    setManualPositions({});
-    window.requestAnimationFrame(() => flowRef.current?.fitView({ padding: 0.25, duration: 350 }));
-    setMessage(`Branches now grow ${direction}.`);
-  }, []);
-
   return (
     <div className="app">
       <Toolbar
@@ -640,10 +715,7 @@ export default function App() {
         onLoad={handleLoad}
         onAddNode={handleAddNode}
         onAddTextBlock={handleAddTextBlock}
-        onRelayout={handleRelayout}
         onFit={() => flowRef.current?.fitView({ padding: 0.25, duration: 350 })}
-        layoutDirection={layoutDirection}
-        onLayoutDirectionChange={handleLayoutDirectionChange}
         fileInputRef={fileInputRef}
       />
 

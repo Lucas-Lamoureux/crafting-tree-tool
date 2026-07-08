@@ -33,6 +33,16 @@ export default function ContextMenu({ menu, node, onAction, onClose, onDescripti
         </label>
         <button onClick={(event) => handleAction(event, 'add', onAction)}>Add Ingredient</button>
         <button onClick={(event) => handleAction(event, 'remove', onAction)}>Remove Ingredient</button>
+        <div className="context-menu-group">
+          <span>Branch direction</span>
+          <div className="context-direction-grid">
+            <button onClick={(event) => handleAction(event, 'direction-right', onAction)}>Right</button>
+            <button onClick={(event) => handleAction(event, 'direction-left', onAction)}>Left</button>
+            <button onClick={(event) => handleAction(event, 'direction-down', onAction)}>Down</button>
+            <button onClick={(event) => handleAction(event, 'direction-up', onAction)}>Up</button>
+          </div>
+        </div>
+        <button onClick={(event) => handleAction(event, 'auto-layout', onAction)}>Auto-layout tree</button>
         <button onClick={(event) => handleAction(event, 'rename', onAction)}>Rename</button>
         <button className="danger" onClick={(event) => handleAction(event, 'delete', onAction)}>Delete</button>
       </div>

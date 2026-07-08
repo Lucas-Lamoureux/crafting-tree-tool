@@ -26,7 +26,11 @@ export function serializeProject(project) {
     {
       name: 'Dependency Tree Explorer',
       rootId: project.rootId,
-      layoutDirection: project.layoutDirection ?? 'right',
+      treeDirections: Object.fromEntries(
+        Object.entries(project.treeDirections ?? {})
+          .filter(([id, direction]) => project.nodesById[id] && ['right', 'left', 'down', 'up'].includes(direction))
+          .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })),
+      ),
       checkedIds: [...(project.checkedIds ?? [])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
       collapsedIds: [...(project.collapsedIds ?? [])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
       positions,
@@ -122,6 +126,19 @@ export function parseProject(jsonText) {
     : [];
   const positions = {};
   const textBlocks = {};
+  const treeDirections = {};
+
+  if (parsed.treeDirections && typeof parsed.treeDirections === 'object' && !Array.isArray(parsed.treeDirections)) {
+    Object.entries(parsed.treeDirections).forEach(([rawId, direction]) => {
+      const id = normalizeId(rawId);
+
+      if (nodesById[id] && ['right', 'left', 'down', 'up'].includes(direction)) {
+        treeDirections[id] = direction;
+      }
+    });
+  } else if (['right', 'left', 'down', 'up'].includes(parsed.layoutDirection) && nodesById[rootId]) {
+    treeDirections[rootId] = parsed.layoutDirection;
+  }
 
   if (parsed.positions && typeof parsed.positions === 'object' && !Array.isArray(parsed.positions)) {
     Object.entries(parsed.positions).forEach(([rawId, rawPosition]) => {
@@ -170,9 +187,7 @@ export function parseProject(jsonText) {
       collapsedIds,
       positions,
       textBlocks,
-      layoutDirection: ['right', 'left', 'down', 'up'].includes(parsed.layoutDirection)
-        ? parsed.layoutDirection
-        : 'right',
+      treeDirections,
     },
   };
 }

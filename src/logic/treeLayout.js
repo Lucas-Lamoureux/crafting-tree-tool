@@ -1,4 +1,4 @@
-import { getVisibleIds } from './treeUtils.js';
+import { getDescendants, getVisibleIds } from './treeUtils.js';
 
 const NODE_WIDTH = 55;
 const NODE_HEIGHT = 32;
@@ -113,4 +113,43 @@ export function layoutTree(
     },
     draggable: true,
   }));
+}
+
+export function layoutSubtreePositions(nodesById, rootId, collapsedIds = new Set(), direction = 'right', anchor = null) {
+  if (!rootId || !nodesById[rootId]) {
+    return {};
+  }
+
+  const idsToLayout = new Set([rootId, ...getDescendants(nodesById, rootId)]);
+  const subtreeNodes = {};
+
+  idsToLayout.forEach((id) => {
+    const node = nodesById[id];
+
+    if (node) {
+      subtreeNodes[id] = {
+        ...node,
+        ingredients: node.ingredients.filter((ingredientId) => idsToLayout.has(ingredientId)),
+      };
+    }
+  });
+
+  const laidOutNodes = layoutTree(subtreeNodes, rootId, collapsedIds, {}, direction);
+  const rootPosition = laidOutNodes.find((node) => node.id === rootId)?.position ?? { x: 0, y: 0 };
+  const offset = anchor
+    ? {
+      x: anchor.x - rootPosition.x,
+      y: anchor.y - rootPosition.y,
+    }
+    : { x: 0, y: 0 };
+
+  return Object.fromEntries(
+    laidOutNodes.map((node) => [
+      node.id,
+      {
+        x: node.position.x + offset.x,
+        y: node.position.y + offset.y,
+      },
+    ]),
+  );
 }
