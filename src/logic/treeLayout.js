@@ -2,8 +2,7 @@ import { getDescendants, getVisibleIds } from './treeUtils.js';
 
 const NODE_WIDTH = 55;
 const NODE_HEIGHT = 32;
-const HORIZONTAL_GAP = 56;
-const VERTICAL_GAP = 36;
+const TIER_GAP = 50;
 const SIBLING_GAP = 2;
 const GROUP_GAP = 4;
 const TILE_LABEL_PADDING = 26;
@@ -17,7 +16,7 @@ export const nodeSize = {
 export const layoutDirections = ['right', 'left', 'down', 'up'];
 
 function getBasePosition(depth, branchIndex, direction) {
-  const depthOffset = depth * (NODE_WIDTH + HORIZONTAL_GAP);
+  const depthOffset = depth * (NODE_WIDTH + TIER_GAP);
   const branchOffset = branchIndex - NODE_HEIGHT / 2;
 
   if (direction === 'left') {
@@ -30,14 +29,14 @@ function getBasePosition(depth, branchIndex, direction) {
   if (direction === 'down') {
     return {
       x: branchIndex - NODE_WIDTH / 2,
-      y: depth * (NODE_HEIGHT + VERTICAL_GAP),
+      y: depth * (NODE_HEIGHT + TIER_GAP),
     };
   }
 
   if (direction === 'up') {
     return {
       x: branchIndex - NODE_WIDTH / 2,
-      y: -depth * (NODE_HEIGHT + VERTICAL_GAP),
+      y: -depth * (NODE_HEIGHT + TIER_GAP),
     };
   }
 
@@ -66,7 +65,7 @@ export function layoutTree(
     }
 
     if (visiting.has(id) || !nodesById[id]) {
-      return leafCursor * (NODE_HEIGHT + VERTICAL_GAP);
+      return leafCursor * (NODE_HEIGHT + TIER_GAP);
     }
 
     visiting.add(id);
@@ -78,7 +77,7 @@ export function layoutTree(
     let centerY;
 
     if (children.length === 0) {
-      centerY = leafCursor * (NODE_HEIGHT + VERTICAL_GAP);
+      centerY = leafCursor * (NODE_HEIGHT + TIER_GAP);
       leafCursor += 1;
     } else {
       const childCenters = children.map((childId) => place(childId, depth + 1));
@@ -100,7 +99,7 @@ export function layoutTree(
   visibleIds.forEach((id) => {
     if (!positioned.has(id)) {
       const pinned = pinnedPositions[id];
-      positioned.set(id, pinned ?? getBasePosition(0, leafCursor * (NODE_HEIGHT + VERTICAL_GAP), layoutDirection));
+      positioned.set(id, pinned ?? getBasePosition(0, leafCursor * (NODE_HEIGHT + TIER_GAP), layoutDirection));
       leafCursor += 1;
     }
   });
@@ -190,6 +189,8 @@ function layoutGroupedSubtree(nodesById, rootId, direction = 'right') {
     (tier?.length ?? 0) > (tiers[widest]?.length ?? 0) ? depth : widest
   ), 0);
   const crossPositions = {};
+  const tierSizes = getTierMainSizes(nodesById, tiers, layoutDirection);
+  const tierStarts = getTierStarts(tierSizes, layoutDirection);
 
   assignTierByGroups(nodesById, tiers, parentById, widestDepth, crossPositions, layoutDirection);
 
@@ -217,7 +218,15 @@ function layoutGroupedSubtree(nodesById, rootId, direction = 'right') {
 
   tiers.forEach((tier, depth) => {
     (tier ?? []).forEach((id) => {
-      positioned[id] = toPosition(nodesById, id, depth, crossPositions[id] ?? 0, layoutDirection);
+      positioned[id] = toPosition(
+        nodesById,
+        id,
+        depth,
+        crossPositions[id] ?? 0,
+        layoutDirection,
+        tierStarts,
+        tierSizes,
+      );
     });
   });
 
@@ -255,6 +264,33 @@ function getCrossSize(nodesById, id, direction) {
   return isVerticalLayout(direction)
     ? getNodeWidth(nodesById, id)
     : getNodeHeight(nodesById, id);
+}
+
+function getMainSize(nodesById, id, direction) {
+  return isVerticalLayout(direction)
+    ? getNodeHeight(nodesById, id)
+    : getNodeWidth(nodesById, id);
+}
+
+function getTierMainSizes(nodesById, tiers, direction) {
+  return tiers.map((tier) => Math.max(
+    isVerticalLayout(direction) ? NODE_HEIGHT : NODE_WIDTH,
+    ...(tier ?? []).map((id) => getMainSize(nodesById, id, direction)),
+  ));
+}
+
+function getTierStarts(tierSizes, direction) {
+  const starts = [0];
+
+  for (let depth = 1; depth < tierSizes.length; depth += 1) {
+    if (direction === 'left' || direction === 'up') {
+      starts[depth] = starts[depth - 1] - TIER_GAP - tierSizes[depth];
+    } else {
+      starts[depth] = starts[depth - 1] + tierSizes[depth - 1] + TIER_GAP;
+    }
+  }
+
+  return starts;
 }
 
 function getChildrenInTier(nodesById, parentId, tier = [], parentById = {}) {
@@ -401,10 +437,13 @@ function centerAssignedTier(nodesById, tier, crossPositions, direction) {
   });
 }
 
-function toPosition(nodesById, id, depth, crossCenter, direction) {
+function toPosition(nodesById, id, depth, crossCenter, direction, tierStarts, tierSizes) {
+  const tierStart = tierStarts[depth] ?? 0;
+  const tierSize = tierSizes[depth] ?? getMainSize(nodesById, id, direction);
+
   if (direction === 'left') {
     return {
-      x: -depth * (NODE_WIDTH + HORIZONTAL_GAP),
+      x: tierStart + tierSize - getNodeWidth(nodesById, id),
       y: crossCenter - getNodeHeight(nodesById, id) / 2,
     };
   }
@@ -412,19 +451,19 @@ function toPosition(nodesById, id, depth, crossCenter, direction) {
   if (direction === 'down') {
     return {
       x: crossCenter - getNodeWidth(nodesById, id) / 2,
-      y: depth * (NODE_HEIGHT + VERTICAL_GAP),
+      y: tierStart,
     };
   }
 
   if (direction === 'up') {
     return {
       x: crossCenter - getNodeWidth(nodesById, id) / 2,
-      y: -depth * (NODE_HEIGHT + VERTICAL_GAP),
+      y: tierStart + tierSize - getNodeHeight(nodesById, id),
     };
   }
 
   return {
-    x: depth * (NODE_WIDTH + HORIZONTAL_GAP),
+    x: tierStart,
     y: crossCenter - getNodeHeight(nodesById, id) / 2,
   };
 }
