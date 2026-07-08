@@ -43,7 +43,7 @@ export function deriveEdges(nodesById, collapsedIds = new Set(), rootId = null) 
           id: `${parentId}->${ingredientId}`,
           source: parentId,
           target: ingredientId,
-          type: 'smoothstep',
+          type: 'step',
           animated: false,
           style: { strokeWidth: 1.8 },
         });

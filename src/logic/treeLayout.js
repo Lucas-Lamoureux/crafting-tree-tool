@@ -2,10 +2,10 @@ import { getDescendants, getVisibleIds } from './treeUtils.js';
 
 const NODE_WIDTH = 55;
 const NODE_HEIGHT = 32;
-const HORIZONTAL_GAP = 36;
-const VERTICAL_GAP = 16;
-const SIBLING_GAP = 5;
-const GROUP_GAP = 10;
+const HORIZONTAL_GAP = 56;
+const VERTICAL_GAP = 36;
+const SIBLING_GAP = 2;
+const GROUP_GAP = 4;
 
 export const nodeSize = {
   width: NODE_WIDTH,
