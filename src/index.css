@@ -166,8 +166,6 @@ button:disabled {
 
 .tree-node strong {
   max-width: calc(100% - 14px);
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 800;
 }

@@ -34,8 +34,24 @@ const blockSides = [
   { side: 'down', position: Position.Bottom, className: 'node-handle-bottom' },
 ];
 
+const DEFAULT_TILE_WIDTH = 55;
+const TILE_LABEL_PADDING = 26;
+const AVERAGE_CHARACTER_WIDTH = 7.4;
+
+function getTileWidth(data) {
+  if (data.isBlock) {
+    return data.width;
+  }
+
+  return Math.max(
+    DEFAULT_TILE_WIDTH,
+    Math.ceil(String(data.id).length * AVERAGE_CHARACTER_WIDTH + TILE_LABEL_PADDING),
+  );
+}
+
 export default function TreeNode({ data, selected }) {
   const handles = handlePositions[data.layoutDirection] ?? handlePositions.right;
+  const tileWidth = getTileWidth(data);
 
   return (
     <div
@@ -50,7 +66,7 @@ export default function TreeNode({ data, selected }) {
       ].filter(Boolean).join(' ')}
       title={data.description || data.id}
       style={{
-        width: data.width,
+        width: tileWidth,
         height: data.height,
       }}
     >
