@@ -34,6 +34,7 @@ export default function App() {
   const [collapsedIds, setCollapsedIds] = useState(() => new Set());
   const [checkedIds, setCheckedIds] = useState(() => new Set());
   const [manualPositions, setManualPositions] = useState({});
+  const [layoutDirection, setLayoutDirection] = useState('right');
   const [selectedId, setSelectedId] = useState(initialTree.rootId);
   const [selectedIds, setSelectedIds] = useState(() => new Set([initialTree.rootId]));
   const [pendingIngredientParentId, setPendingIngredientParentId] = useState(null);
@@ -45,7 +46,7 @@ export default function App() {
   const fileInputRef = useRef(null);
 
   const flowNodes = useMemo(() => {
-    const laidOutNodes = layoutTree(nodesById, rootId, collapsedIds, manualPositions);
+    const laidOutNodes = layoutTree(nodesById, rootId, collapsedIds, manualPositions, layoutDirection);
 
     const treeNodes = laidOutNodes.map((node) => {
       const ingredients = nodesById[node.id]?.ingredients ?? [];
@@ -67,6 +68,7 @@ export default function App() {
           checked: checkedIds.has(node.id),
           selected: selectedIds.has(node.id),
           ingredientCheckStatus,
+          layoutDirection,
         },
       };
     });
@@ -84,7 +86,7 @@ export default function App() {
 
     return [...treeNodes, ...textBlockNodes];
   },
-    [checkedIds, collapsedIds, manualPositions, nodesById, rootId, selectedIds, textBlocks],
+    [checkedIds, collapsedIds, layoutDirection, manualPositions, nodesById, rootId, selectedIds, textBlocks],
   );
 
   const edgeCount = useMemo(
@@ -568,12 +570,13 @@ export default function App() {
         checkedIds,
         collapsedIds,
         positions,
+        layoutDirection,
         textBlocks: textBlocksToSave,
       }),
     );
     setSaveModalOpen(false);
     setMessage(`Project saved as ${filename}.`);
-  }, [checkedIds, collapsedIds, flowNodes, nodesById, rootId, textBlocks]);
+  }, [checkedIds, collapsedIds, flowNodes, layoutDirection, nodesById, rootId, textBlocks]);
 
   const handleLoad = useCallback((event) => {
     const file = event.target.files?.[0];
@@ -595,6 +598,7 @@ export default function App() {
       setSelectedIds(new Set(result.project.rootId ? [result.project.rootId] : []));
       setCollapsedIds(new Set(result.project.collapsedIds ?? []));
       setManualPositions(result.project.positions ?? {});
+      setLayoutDirection(result.project.layoutDirection ?? 'right');
       setMessage(`Loaded ${file.name}.`);
     });
 
@@ -619,6 +623,13 @@ export default function App() {
     setMessage('Tree layout rebuilt.');
   }, []);
 
+  const handleLayoutDirectionChange = useCallback((direction) => {
+    setLayoutDirection(direction);
+    setManualPositions({});
+    window.requestAnimationFrame(() => flowRef.current?.fitView({ padding: 0.25, duration: 350 }));
+    setMessage(`Branches now grow ${direction}.`);
+  }, []);
+
   return (
     <div className="app">
       <Toolbar
@@ -626,11 +637,13 @@ export default function App() {
         edgeCount={edgeCount}
         onSearch={handleSearch}
         onSave={handleSave}
-      onLoad={handleLoad}
-      onAddNode={handleAddNode}
-      onAddTextBlock={handleAddTextBlock}
+        onLoad={handleLoad}
+        onAddNode={handleAddNode}
+        onAddTextBlock={handleAddTextBlock}
         onRelayout={handleRelayout}
         onFit={() => flowRef.current?.fitView({ padding: 0.25, duration: 350 })}
+        layoutDirection={layoutDirection}
+        onLayoutDirectionChange={handleLayoutDirectionChange}
         fileInputRef={fileInputRef}
       />
 

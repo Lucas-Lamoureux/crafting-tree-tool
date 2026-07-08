@@ -26,6 +26,7 @@ export function serializeProject(project) {
     {
       name: 'Dependency Tree Explorer',
       rootId: project.rootId,
+      layoutDirection: project.layoutDirection ?? 'right',
       checkedIds: [...(project.checkedIds ?? [])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
       collapsedIds: [...(project.collapsedIds ?? [])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
       positions,
@@ -169,6 +170,9 @@ export function parseProject(jsonText) {
       collapsedIds,
       positions,
       textBlocks,
+      layoutDirection: ['right', 'left', 'down', 'up'].includes(parsed.layoutDirection)
+        ? parsed.layoutDirection
+        : 'right',
     },
   };
 }

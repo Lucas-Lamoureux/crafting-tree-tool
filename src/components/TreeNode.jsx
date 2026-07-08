@@ -1,6 +1,35 @@
 import { Handle, Position } from '@xyflow/react';
 
+const handlePositions = {
+  right: {
+    target: Position.Left,
+    source: Position.Right,
+    targetClass: 'node-handle-left',
+    sourceClass: 'node-handle-right',
+  },
+  left: {
+    target: Position.Right,
+    source: Position.Left,
+    targetClass: 'node-handle-right',
+    sourceClass: 'node-handle-left',
+  },
+  down: {
+    target: Position.Top,
+    source: Position.Bottom,
+    targetClass: 'node-handle-top',
+    sourceClass: 'node-handle-bottom',
+  },
+  up: {
+    target: Position.Bottom,
+    source: Position.Top,
+    targetClass: 'node-handle-bottom',
+    sourceClass: 'node-handle-top',
+  },
+};
+
 export default function TreeNode({ data, selected }) {
+  const handles = handlePositions[data.layoutDirection] ?? handlePositions.right;
+
   return (
     <div
       className={[
@@ -14,7 +43,11 @@ export default function TreeNode({ data, selected }) {
       ].filter(Boolean).join(' ')}
       title={data.description || data.id}
     >
-      <Handle className="node-handle node-handle-in" type="target" position={Position.Left} />
+      <Handle
+        className={`node-handle node-handle-in ${handles.targetClass}`}
+        type="target"
+        position={handles.target}
+      />
       <label className="node-check nodrag" title="Toggle checked" onPointerDown={(event) => event.stopPropagation()}>
         <input
           type="checkbox"
@@ -28,9 +61,9 @@ export default function TreeNode({ data, selected }) {
         <span className="node-badge">{data.collapsed ? '+' : data.ingredientCount}</span>
       )}
       <Handle
-        className="node-handle node-handle-out"
+        className={`node-handle node-handle-out ${handles.sourceClass}`}
         type="source"
-        position={Position.Right}
+        position={handles.source}
       />
     </div>
   );

@@ -10,8 +10,17 @@ export default function Toolbar({
   onAddTextBlock,
   onRelayout,
   onFit,
+  layoutDirection,
+  onLayoutDirectionChange,
   fileInputRef,
 }) {
+  const directions = [
+    { value: 'right', label: 'Right' },
+    { value: 'left', label: 'Left' },
+    { value: 'down', label: 'Down' },
+    { value: 'up', label: 'Up' },
+  ];
+
   return (
     <header className="toolbar">
       <div className="brand">
@@ -25,6 +34,18 @@ export default function Toolbar({
       <SearchBar onSearch={onSearch} />
 
       <div className="toolbar-actions">
+        <div className="direction-toggle" aria-label="Branch direction">
+          {directions.map((direction) => (
+            <button
+              key={direction.value}
+              type="button"
+              className={layoutDirection === direction.value ? 'active' : ''}
+              onClick={() => onLayoutDirectionChange(direction.value)}
+            >
+              {direction.label}
+            </button>
+          ))}
+        </div>
         <button onClick={onRelayout}>Auto-layout</button>
         <button onClick={onAddNode}>Add Tile</button>
         <button onClick={onAddTextBlock}>Add Text</button>

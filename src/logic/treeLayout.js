@@ -10,7 +10,47 @@ export const nodeSize = {
   height: NODE_HEIGHT,
 };
 
-export function layoutTree(nodesById, rootId, collapsedIds = new Set(), pinnedPositions = {}) {
+export const layoutDirections = ['right', 'left', 'down', 'up'];
+
+function getBasePosition(depth, branchIndex, direction) {
+  const depthOffset = depth * (NODE_WIDTH + HORIZONTAL_GAP);
+  const branchOffset = branchIndex - NODE_HEIGHT / 2;
+
+  if (direction === 'left') {
+    return {
+      x: -depthOffset,
+      y: branchOffset,
+    };
+  }
+
+  if (direction === 'down') {
+    return {
+      x: branchIndex - NODE_WIDTH / 2,
+      y: depth * (NODE_HEIGHT + VERTICAL_GAP),
+    };
+  }
+
+  if (direction === 'up') {
+    return {
+      x: branchIndex - NODE_WIDTH / 2,
+      y: -depth * (NODE_HEIGHT + VERTICAL_GAP),
+    };
+  }
+
+  return {
+    x: depthOffset,
+    y: branchOffset,
+  };
+}
+
+export function layoutTree(
+  nodesById,
+  rootId,
+  collapsedIds = new Set(),
+  pinnedPositions = {},
+  direction = 'right',
+) {
+  const layoutDirection = layoutDirections.includes(direction) ? direction : 'right';
   const visibleIds = getVisibleIds(nodesById, rootId, collapsedIds);
   const positioned = new Map();
   const visiting = new Set();
@@ -41,10 +81,7 @@ export function layoutTree(nodesById, rootId, collapsedIds = new Set(), pinnedPo
       centerY = (Math.min(...childCenters) + Math.max(...childCenters)) / 2;
     }
 
-    const basePosition = {
-      x: depth * (NODE_WIDTH + HORIZONTAL_GAP),
-      y: centerY - NODE_HEIGHT / 2,
-    };
+    const basePosition = getBasePosition(depth, centerY, layoutDirection);
 
     const position = pinnedPositions[id] ?? basePosition;
     positioned.set(id, position);
@@ -59,10 +96,7 @@ export function layoutTree(nodesById, rootId, collapsedIds = new Set(), pinnedPo
   visibleIds.forEach((id) => {
     if (!positioned.has(id)) {
       const pinned = pinnedPositions[id];
-      positioned.set(id, pinned ?? {
-        x: 0,
-        y: leafCursor * (NODE_HEIGHT + VERTICAL_GAP),
-      });
+      positioned.set(id, pinned ?? getBasePosition(0, leafCursor * (NODE_HEIGHT + VERTICAL_GAP), layoutDirection));
       leafCursor += 1;
     }
   });

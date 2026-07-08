@@ -157,12 +157,24 @@ function TreeCanvasInner({
 
   const handleNodeDragStart = useCallback((_, node) => {
     const selectedGroup = selectedIds.has(node.id) && selectedIds.size > 1;
-    const idsToMove = selectedGroup
-      ? new Set(selectedIds)
-      : new Set([
-        node.id,
-        ...(node.type === 'treeNode' ? getDescendants(nodesById, node.id, collapsedIds) : []),
-      ]);
+    const idsToMove = new Set();
+
+    if (selectedGroup) {
+      selectedIds.forEach((id) => {
+        idsToMove.add(id);
+
+        if (nodesById[id]) {
+          getDescendants(nodesById, id, collapsedIds).forEach((descendantId) => idsToMove.add(descendantId));
+        }
+      });
+    } else {
+      idsToMove.add(node.id);
+
+      if (node.type === 'treeNode') {
+        getDescendants(nodesById, node.id, collapsedIds).forEach((descendantId) => idsToMove.add(descendantId));
+      }
+    }
+
     const basePositions = {};
 
     localNodes.forEach((item) => {
