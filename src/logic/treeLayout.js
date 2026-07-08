@@ -4,6 +4,8 @@ const NODE_WIDTH = 55;
 const NODE_HEIGHT = 32;
 const HORIZONTAL_GAP = 36;
 const VERTICAL_GAP = 16;
+const SIBLING_GAP = 20;
+const GROUP_GAP = 50;
 
 export const nodeSize = {
   width: NODE_WIDTH,
@@ -134,8 +136,8 @@ export function layoutSubtreePositions(nodesById, rootId, collapsedIds = new Set
     }
   });
 
-  const laidOutNodes = layoutTree(subtreeNodes, rootId, collapsedIds, {}, direction);
-  const rootPosition = laidOutNodes.find((node) => node.id === rootId)?.position ?? { x: 0, y: 0 };
+  const positions = layoutGroupedSubtree(subtreeNodes, rootId, direction);
+  const rootPosition = positions[rootId] ?? { x: 0, y: 0 };
   const offset = anchor
     ? {
       x: anchor.x - rootPosition.x,
@@ -144,12 +146,234 @@ export function layoutSubtreePositions(nodesById, rootId, collapsedIds = new Set
     : { x: 0, y: 0 };
 
   return Object.fromEntries(
-    laidOutNodes.map((node) => [
-      node.id,
+    Object.entries(positions).map(([id, position]) => [
+      id,
       {
-        x: node.position.x + offset.x,
-        y: node.position.y + offset.y,
+        x: position.x + offset.x,
+        y: position.y + offset.y,
       },
     ]),
   );
+}
+
+function layoutGroupedSubtree(nodesById, rootId, direction = 'right') {
+  const layoutDirection = layoutDirections.includes(direction) ? direction : 'right';
+  const tiers = [];
+  const parentById = {};
+  const seen = new Set();
+  const queue = [{ id: rootId, depth: 0 }];
+
+  while (queue.length > 0) {
+    const { id, depth } = queue.shift();
+
+    if (seen.has(id) || !nodesById[id]) {
+      continue;
+    }
+
+    seen.add(id);
+    tiers[depth] ??= [];
+    tiers[depth].push(id);
+
+    nodesById[id].ingredients.forEach((childId) => {
+      if (!nodesById[childId] || seen.has(childId)) {
+        return;
+      }
+
+      parentById[childId] ??= id;
+      queue.push({ id: childId, depth: depth + 1 });
+    });
+  }
+
+  const widestDepth = tiers.reduce((widest, tier, depth) => (
+    (tier?.length ?? 0) > (tiers[widest]?.length ?? 0) ? depth : widest
+  ), 0);
+  const crossPositions = {};
+  const crossSize = isVerticalLayout(layoutDirection) ? NODE_WIDTH : NODE_HEIGHT;
+
+  assignTierByGroups(tiers, parentById, widestDepth, crossPositions, crossSize);
+
+  for (let depth = widestDepth - 1; depth >= 0; depth -= 1) {
+    (tiers[depth] ?? []).forEach((id) => {
+      const childPositions = getChildrenInTier(nodesById, id, tiers[depth + 1] ?? [], parentById)
+        .map((childId) => crossPositions[childId])
+        .filter((position) => Number.isFinite(position));
+
+      if (childPositions.length > 0) {
+        crossPositions[id] = (Math.min(...childPositions) + Math.max(...childPositions)) / 2;
+      }
+    });
+  }
+
+  for (let depth = widestDepth + 1; depth < tiers.length; depth += 1) {
+    assignTierBelowParents(nodesById, tiers, parentById, depth, crossPositions, crossSize);
+  }
+
+  tiers.forEach((tier, depth) => {
+    assignMissingTierPositions(tier ?? [], crossPositions, crossSize);
+  });
+
+  const positioned = {};
+
+  tiers.forEach((tier, depth) => {
+    (tier ?? []).forEach((id) => {
+      positioned[id] = toPosition(depth, crossPositions[id] ?? 0, layoutDirection);
+    });
+  });
+
+  return positioned;
+}
+
+function isVerticalLayout(direction) {
+  return direction === 'up' || direction === 'down';
+}
+
+function getChildrenInTier(nodesById, parentId, tier = [], parentById = {}) {
+  const tierSet = new Set(tier);
+
+  return nodesById[parentId].ingredients.filter((childId) => (
+    tierSet.has(childId) && parentById[childId] === parentId
+  ));
+}
+
+function assignTierByGroups(tiers, parentById, depth, crossPositions, crossSize) {
+  const tier = tiers[depth] ?? [];
+
+  if (tier.length === 0) {
+    return;
+  }
+
+  if (depth === 0) {
+    crossPositions[tier[0]] = 0;
+    return;
+  }
+
+  const groups = [];
+  const previousTier = tiers[depth - 1] ?? [];
+
+  previousTier.forEach((parentId) => {
+    const children = tier.filter((id) => parentById[id] === parentId);
+
+    if (children.length > 0) {
+      groups.push(children);
+    }
+  });
+
+  const groupedIds = new Set(groups.flat());
+  const ungrouped = tier.filter((id) => !groupedIds.has(id));
+
+  if (ungrouped.length > 0) {
+    groups.push(ungrouped);
+  }
+
+  let cursor = 0;
+
+  groups.forEach((group, groupIndex) => {
+    if (groupIndex > 0) {
+      cursor += GROUP_GAP;
+    }
+
+    group.forEach((id, index) => {
+      if (index > 0) {
+        cursor += SIBLING_GAP;
+      }
+
+      crossPositions[id] = cursor + crossSize / 2;
+      cursor += crossSize;
+    });
+  });
+
+  centerAssignedTier(tier, crossPositions);
+}
+
+function assignTierBelowParents(nodesById, tiers, parentById, depth, crossPositions, crossSize) {
+  const tier = tiers[depth] ?? [];
+  const previousTier = tiers[depth - 1] ?? [];
+  let previousEnd = -Infinity;
+
+  previousTier.forEach((parentId) => {
+    const children = getChildrenInTier(nodesById, parentId, tier, parentById);
+
+    if (children.length === 0) {
+      return;
+    }
+
+    const groupWidth = children.length * crossSize + Math.max(0, children.length - 1) * SIBLING_GAP;
+    const parentCenter = crossPositions[parentId] ?? 0;
+    let start = parentCenter - groupWidth / 2;
+
+    if (Number.isFinite(previousEnd)) {
+      start = Math.max(start, previousEnd + GROUP_GAP);
+    }
+
+    children.forEach((childId, index) => {
+      crossPositions[childId] = start + crossSize / 2 + index * (crossSize + SIBLING_GAP);
+    });
+
+    previousEnd = start + groupWidth;
+  });
+}
+
+function assignMissingTierPositions(tier, crossPositions, crossSize) {
+  let cursor = Math.max(
+    0,
+    ...tier
+      .map((id) => crossPositions[id])
+      .filter((position) => Number.isFinite(position))
+      .map((position) => position + crossSize / 2 + GROUP_GAP),
+  );
+
+  tier.forEach((id) => {
+    if (Number.isFinite(crossPositions[id])) {
+      return;
+    }
+
+    crossPositions[id] = cursor + crossSize / 2;
+    cursor += crossSize + SIBLING_GAP;
+  });
+}
+
+function centerAssignedTier(tier, crossPositions) {
+  const positions = tier
+    .map((id) => crossPositions[id])
+    .filter((position) => Number.isFinite(position));
+
+  if (positions.length === 0) {
+    return;
+  }
+
+  const offset = (Math.min(...positions) + Math.max(...positions)) / 2;
+
+  tier.forEach((id) => {
+    if (Number.isFinite(crossPositions[id])) {
+      crossPositions[id] -= offset;
+    }
+  });
+}
+
+function toPosition(depth, crossCenter, direction) {
+  if (direction === 'left') {
+    return {
+      x: -depth * (NODE_WIDTH + HORIZONTAL_GAP),
+      y: crossCenter - NODE_HEIGHT / 2,
+    };
+  }
+
+  if (direction === 'down') {
+    return {
+      x: crossCenter - NODE_WIDTH / 2,
+      y: depth * (NODE_HEIGHT + VERTICAL_GAP),
+    };
+  }
+
+  if (direction === 'up') {
+    return {
+      x: crossCenter - NODE_WIDTH / 2,
+      y: -depth * (NODE_HEIGHT + VERTICAL_GAP),
+    };
+  }
+
+  return {
+    x: depth * (NODE_WIDTH + HORIZONTAL_GAP),
+    y: crossCenter - NODE_HEIGHT / 2,
+  };
 }
