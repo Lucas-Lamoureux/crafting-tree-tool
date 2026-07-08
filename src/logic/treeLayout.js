@@ -4,8 +4,8 @@ const NODE_WIDTH = 55;
 const NODE_HEIGHT = 32;
 const HORIZONTAL_GAP = 36;
 const VERTICAL_GAP = 16;
-const SIBLING_GAP = 20;
-const GROUP_GAP = 50;
+const SIBLING_GAP = 5;
+const GROUP_GAP = 10;
 
 export const nodeSize = {
   width: NODE_WIDTH,
