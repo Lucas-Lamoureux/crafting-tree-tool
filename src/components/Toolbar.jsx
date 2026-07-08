@@ -7,7 +7,7 @@ export default function Toolbar({
   onSave,
   onLoad,
   onAddNode,
-  onAddTextBlock,
+  onAddBlock,
   onFit,
   fileInputRef,
 }) {
@@ -25,7 +25,7 @@ export default function Toolbar({
 
       <div className="toolbar-actions">
         <button onClick={onAddNode}>Add Tile</button>
-        <button onClick={onAddTextBlock}>Add Text</button>
+        <button onClick={onAddBlock}>Add Block</button>
         <button onClick={onFit}>Fit</button>
         <button onClick={onSave}>Save JSON</button>
         <button onClick={() => fileInputRef.current?.click()}>Load JSON</button>

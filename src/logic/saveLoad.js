@@ -20,6 +20,9 @@ export function serializeProject(project) {
       id: node.id,
       description: node.description ?? '',
       ingredients: [...node.ingredients],
+      isBlock: Boolean(node.isBlock),
+      width: node.width,
+      height: node.height,
     }));
 
   return JSON.stringify(
@@ -100,6 +103,9 @@ export function parseProject(jsonText) {
       id,
       description: String(rawNode.description ?? ''),
       ingredients,
+      isBlock: Boolean(rawNode.isBlock),
+      width: rawNode.isBlock ? clampNodeSize(rawNode.width, 55) : undefined,
+      height: rawNode.isBlock ? clampNodeSize(rawNode.height, 32) : undefined,
     };
   }
 
@@ -190,6 +196,16 @@ export function parseProject(jsonText) {
       treeDirections,
     },
   };
+}
+
+function clampNodeSize(value, fallback) {
+  const size = Number(value);
+
+  if (!Number.isFinite(size)) {
+    return fallback;
+  }
+
+  return Math.min(600, Math.max(24, Math.round(size)));
 }
 
 export function downloadJson(filename, jsonText) {

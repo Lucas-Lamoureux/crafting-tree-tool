@@ -4,11 +4,18 @@ export function normalizeId(value) {
   return String(value ?? '').trim();
 }
 
-export function createNode(id) {
-  return { id, ingredients: [], description: '' };
+export function createNode(id, options = {}) {
+  return {
+    id,
+    ingredients: [],
+    description: '',
+    isBlock: Boolean(options.isBlock),
+    width: options.width,
+    height: options.height,
+  };
 }
 
-export function addNode(nodesById, id) {
+export function addNode(nodesById, id, options = {}) {
   if (!id) {
     return { ok: false, message: 'Enter an ID first.' };
   }
@@ -21,7 +28,7 @@ export function addNode(nodesById, id) {
     ok: true,
     nodesById: {
       ...nodesById,
-      [id]: createNode(id),
+      [id]: createNode(id, options),
     },
   };
 }
@@ -111,7 +118,7 @@ export function addIngredient(nodesById, parentId, ingredientId) {
   };
 
   if (!next[ingredientId]) {
-    next[ingredientId] = createNode(ingredientId);
+      next[ingredientId] = createNode(ingredientId);
   }
 
   return { ok: true, nodesById: next };
@@ -170,6 +177,9 @@ export function renameNode(nodesById, oldId, newId, rootId) {
       id,
       description: node.description ?? '',
       ingredients: node.ingredients.map((ingredientId) => (ingredientId === oldId ? newId : ingredientId)),
+      isBlock: Boolean(node.isBlock),
+      width: node.width,
+      height: node.height,
     };
   });
 

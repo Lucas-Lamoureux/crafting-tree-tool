@@ -4,6 +4,7 @@ import Toolbar from './components/Toolbar.jsx';
 import PropertyPanel from './components/PropertyPanel.jsx';
 import AddTileModal from './components/AddTileModal.jsx';
 import AddIngredientsModal from './components/AddIngredientsModal.jsx';
+import BlockModal from './components/BlockModal.jsx';
 import SaveProjectModal from './components/SaveProjectModal.jsx';
 import { initialTree } from './data/initialTree.js';
 import { layoutSubtreePositions, layoutTree } from './logic/treeLayout.js';
@@ -43,6 +44,7 @@ export default function App() {
   const [ingredientModalParentId, setIngredientModalParentId] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const [addTileModalOpen, setAddTileModalOpen] = useState(false);
+  const [blockModal, setBlockModal] = useState(null);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [message, setMessage] = useState('Ready');
   const flowRef = useRef(null);
@@ -90,6 +92,8 @@ export default function App() {
           selected: selectedIds.has(node.id),
           ingredientCheckStatus,
           layoutDirection: directionByNode[node.id] ?? 'right',
+          width: nodesById[node.id]?.width,
+          height: nodesById[node.id]?.height,
         },
       };
     });
@@ -312,6 +316,7 @@ export default function App() {
         setPendingIngredientParentId(null);
         setIngredientModalParentId(null);
         setAddTileModalOpen(false);
+        setBlockModal(null);
         setSaveModalOpen(false);
       }
 
@@ -367,6 +372,17 @@ export default function App() {
         `Removed ${ingredientId} from ${id}.`,
         { preservePositions: true },
       );
+    }
+
+    if (action === 'resize-block') {
+      const node = nodesById[id];
+
+      if (node?.isBlock) {
+        setBlockModal({
+          mode: 'edit',
+          id,
+        });
+      }
     }
 
     if (action.startsWith('direction-')) {
@@ -497,34 +513,49 @@ export default function App() {
     setMessage(`Added ${ingredientIds.length} ingredient${ingredientIds.length === 1 ? '' : 's'} to ${parentId}.`);
   }, [collapsedIds, directionByNode, flowNodes, manualPositions, nodesById, treeDirections]);
 
-  const handleAddTextBlock = useCallback(() => {
-    const existingIds = new Set([...Object.keys(nodesById), ...Object.keys(textBlocks)]);
-    let index = Object.keys(textBlocks).length + 1;
-    let id = `text-${index}`;
+  const handleAddBlock = useCallback(() => {
+    setBlockModal({ mode: 'create' });
+  }, []);
 
-    while (existingIds.has(id)) {
-      index += 1;
-      id = `text-${index}`;
+  const handleCreateBlock = useCallback(({ id, width, height }) => {
+    const normalizedId = normalizeId(id);
+
+    if (textBlocks[normalizedId]) {
+      setMessage(`ID "${normalizedId}" already exists.`);
+      return;
     }
 
-    const position = flowRef.current?.screenToFlowPosition?.({ x: 180, y: 160 }) ?? { x: 40, y: 40 };
+    const result = addNode(nodesById, normalizedId, {
+      isBlock: true,
+      width,
+      height,
+    });
 
-    setTextBlocks((current) => ({
+    if (setResult(result, `Added block ${id}.`)) {
+      setSelectedId(id);
+      setSelectedIds(new Set([id]));
+      setRootId((current) => current ?? id);
+      setBlockModal(null);
+    }
+  }, [nodesById, setResult, textBlocks]);
+
+  const handleResizeBlock = useCallback(({ id, width, height }) => {
+    if (!nodesById[id]?.isBlock) {
+      setBlockModal(null);
+      return;
+    }
+
+    setNodesById((current) => ({
       ...current,
       [id]: {
-        id,
-        title: `Text ${index}`,
-        text: '',
-        fontSize: 14,
-        width: 220,
-        height: 140,
-        position,
+        ...current[id],
+        width,
+        height,
       },
     }));
-    setSelectedId(id);
-    setSelectedIds(new Set([id]));
-    setMessage(`Added ${id}.`);
-  }, [nodesById, textBlocks]);
+    setBlockModal(null);
+    setMessage(`Updated ${id} size.`);
+  }, [nodesById]);
 
   const handleUpdateTextBlock = useCallback((id, patch) => {
     setTextBlocks((current) => {
@@ -753,7 +784,7 @@ export default function App() {
         onSave={handleSave}
         onLoad={handleLoad}
         onAddNode={handleAddNode}
-        onAddTextBlock={handleAddTextBlock}
+        onAddBlock={handleAddBlock}
         onFit={() => flowRef.current?.fitView({ padding: 0.25, duration: 350 })}
         fileInputRef={fileInputRef}
       />
@@ -822,6 +853,15 @@ export default function App() {
         nodesById={nodesById}
         onCancel={() => setIngredientModalParentId(null)}
         onCreate={handleCreateIngredients}
+      />
+
+      <BlockModal
+        open={Boolean(blockModal)}
+        mode={blockModal?.mode ?? 'create'}
+        existingIds={new Set([...Object.keys(nodesById), ...Object.keys(textBlocks)])}
+        initialBlock={blockModal?.mode === 'edit' ? nodesById[blockModal.id] : null}
+        onCancel={() => setBlockModal(null)}
+        onSubmit={blockModal?.mode === 'edit' ? handleResizeBlock : handleCreateBlock}
       />
 
       <SaveProjectModal

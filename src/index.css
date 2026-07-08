@@ -165,11 +165,21 @@ button:disabled {
 }
 
 .tree-node strong {
-  max-width: 42px;
+  max-width: calc(100% - 14px);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 800;
+}
+
+.block-modal {
+  width: min(420px, calc(100vw - 32px));
+}
+
+.block-size-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
 }
 
 .tree-node.is-selected,

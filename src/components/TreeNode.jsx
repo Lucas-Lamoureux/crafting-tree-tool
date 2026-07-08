@@ -42,6 +42,10 @@ export default function TreeNode({ data, selected }) {
         data.ingredientCount > 0 ? `has-check-status is-check-${data.ingredientCheckStatus}` : '',
       ].filter(Boolean).join(' ')}
       title={data.description || data.id}
+      style={{
+        width: data.width,
+        height: data.height,
+      }}
     >
       <Handle
         className={`node-handle node-handle-in ${handles.targetClass}`}

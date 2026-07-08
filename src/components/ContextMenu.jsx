@@ -34,6 +34,9 @@ export default function ContextMenu({ menu, node, onAction, onClose, onDescripti
         <button onClick={(event) => handleAction(event, 'add', onAction)}>Add Ingredient</button>
         <button onClick={(event) => handleAction(event, 'add-ingredients', onAction)}>Add Ingredients...</button>
         <button onClick={(event) => handleAction(event, 'remove', onAction)}>Remove Ingredient</button>
+        {node?.isBlock && (
+          <button onClick={(event) => handleAction(event, 'resize-block', onAction)}>Change Size</button>
+        )}
         <div className="context-menu-group">
           <span>Branch direction</span>
           <div className="context-direction-grid">
