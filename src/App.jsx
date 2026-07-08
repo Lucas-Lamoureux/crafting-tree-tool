@@ -511,6 +511,51 @@ export default function App() {
       }));
     };
 
+    const relayoutBlockTrees = (blockId) => {
+      const block = nodesById[blockId];
+
+      if (!block?.isBlock) {
+        return false;
+      }
+
+      const nextPositions = {};
+      const nextDirections = {};
+
+      block.ingredients.forEach((childId) => {
+        if (!nodesById[childId]) {
+          return;
+        }
+
+        const side = connectionSides[blockId]?.[childId]
+          ?? treeDirections[childId]
+          ?? directionByNode[childId]
+          ?? 'right';
+
+        nextDirections[childId] = side;
+        Object.assign(
+          nextPositions,
+          layoutSubtreePositions(
+            nodesById,
+            childId,
+            collapsedIds,
+            side,
+            getConnectionAnchor(blockId, childId, side, flowNodes, nodesById),
+          ),
+        );
+      });
+
+      setTreeDirections((current) => ({
+        ...current,
+        ...nextDirections,
+      }));
+      setManualPositions((current) => ({
+        ...current,
+        ...nextPositions,
+      }));
+
+      return true;
+    };
+
     if (action === 'add') {
       setPendingIngredientParentId(id);
       setMessage(`Click an existing ID to add it as an ingredient of ${id}.`);
@@ -556,10 +601,14 @@ export default function App() {
     }
 
     if (action === 'auto-layout') {
-      const direction = treeDirections[id] ?? directionByNode[id] ?? 'right';
+      if (relayoutBlockTrees(id)) {
+        setMessage(`Auto-layout rebuilt ${id}'s connected trees.`);
+      } else {
+        const direction = treeDirections[id] ?? directionByNode[id] ?? 'right';
 
-      relayoutTree(id, direction);
-      setMessage(`Auto-layout rebuilt ${id}'s tree.`);
+        relayoutTree(id, direction);
+        setMessage(`Auto-layout rebuilt ${id}'s tree.`);
+      }
     }
 
     if (action === 'rename') {
@@ -613,6 +662,7 @@ export default function App() {
     setContextMenu(null);
   }, [
     collapsedIds,
+    connectionSides,
     contextMenu,
     directionByNode,
     flowNodes,
