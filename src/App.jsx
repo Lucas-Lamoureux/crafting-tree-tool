@@ -88,20 +88,47 @@ function renameConnectionSideNode(connectionSides, oldId, newId) {
   return next;
 }
 
+const DEFAULT_TILE_WIDTH = 55;
+const DEFAULT_TILE_HEIGHT = 32;
+const TIER_GAP = 50;
+const SIDE_ROOT_GAP = 4;
+const TILE_LABEL_PADDING = 26;
+const AVERAGE_CHARACTER_WIDTH = 7.4;
+
+function getNodeWidth(nodesById, id) {
+  const node = nodesById[id];
+
+  if (Number.isFinite(node?.width)) {
+    return node.width;
+  }
+
+  return Math.max(
+    DEFAULT_TILE_WIDTH,
+    Math.ceil(String(id).length * AVERAGE_CHARACTER_WIDTH + TILE_LABEL_PADDING),
+  );
+}
+
+function getNodeHeight(nodesById, id) {
+  const node = nodesById[id];
+
+  if (Number.isFinite(node?.height)) {
+    return node.height;
+  }
+
+  return DEFAULT_TILE_HEIGHT;
+}
+
 function getConnectionAnchor(parentId, childId, side, flowNodes, nodesById) {
   const parentFlowNode = flowNodes.find((node) => node.id === parentId);
   const parentPosition = parentFlowNode?.position ?? { x: 0, y: 0 };
-  const parent = nodesById[parentId] ?? {};
-  const child = nodesById[childId] ?? {};
-  const parentWidth = parent.width ?? 55;
-  const parentHeight = parent.height ?? 32;
-  const childWidth = child.width ?? 55;
-  const childHeight = child.height ?? 32;
-  const sideGap = 56;
+  const parentWidth = getNodeWidth(nodesById, parentId);
+  const parentHeight = getNodeHeight(nodesById, parentId);
+  const childWidth = getNodeWidth(nodesById, childId);
+  const childHeight = getNodeHeight(nodesById, childId);
 
   if (side === 'left') {
     return {
-      x: parentPosition.x - sideGap - childWidth,
+      x: parentPosition.x - TIER_GAP - childWidth,
       y: parentPosition.y + parentHeight / 2 - childHeight / 2,
     };
   }
@@ -109,21 +136,74 @@ function getConnectionAnchor(parentId, childId, side, flowNodes, nodesById) {
   if (side === 'up') {
     return {
       x: parentPosition.x + parentWidth / 2 - childWidth / 2,
-      y: parentPosition.y - sideGap - childHeight,
+      y: parentPosition.y - TIER_GAP - childHeight,
     };
   }
 
   if (side === 'down') {
     return {
       x: parentPosition.x + parentWidth / 2 - childWidth / 2,
-      y: parentPosition.y + parentHeight + sideGap,
+      y: parentPosition.y + parentHeight + TIER_GAP,
     };
   }
 
   return {
-    x: parentPosition.x + parentWidth + sideGap,
+    x: parentPosition.x + parentWidth + TIER_GAP,
     y: parentPosition.y + parentHeight / 2 - childHeight / 2,
   };
+}
+
+function getBlockSideAnchors(blockId, childSides, flowNodes, nodesById) {
+  const blockFlowNode = flowNodes.find((node) => node.id === blockId);
+  const blockPosition = blockFlowNode?.position ?? { x: 0, y: 0 };
+  const blockWidth = getNodeWidth(nodesById, blockId);
+  const blockHeight = getNodeHeight(nodesById, blockId);
+  const anchors = {};
+
+  ['right', 'left'].forEach((side) => {
+    const childIds = childSides[side] ?? [];
+    const totalHeight = childIds.reduce(
+      (total, childId, index) => total + getNodeHeight(nodesById, childId) + (index > 0 ? SIDE_ROOT_GAP : 0),
+      0,
+    );
+    let y = blockPosition.y + blockHeight / 2 - totalHeight / 2;
+
+    childIds.forEach((childId) => {
+      const childWidth = getNodeWidth(nodesById, childId);
+      const childHeight = getNodeHeight(nodesById, childId);
+
+      anchors[childId] = {
+        x: side === 'left'
+          ? blockPosition.x - TIER_GAP - childWidth
+          : blockPosition.x + blockWidth + TIER_GAP,
+        y,
+      };
+      y += childHeight + SIDE_ROOT_GAP;
+    });
+  });
+
+  ['up', 'down'].forEach((side) => {
+    const childIds = childSides[side] ?? [];
+    const totalWidth = childIds.reduce(
+      (total, childId, index) => total + getNodeWidth(nodesById, childId) + (index > 0 ? SIDE_ROOT_GAP : 0),
+      0,
+    );
+    let x = blockPosition.x + blockWidth / 2 - totalWidth / 2;
+
+    childIds.forEach((childId) => {
+      const childHeight = getNodeHeight(nodesById, childId);
+
+      anchors[childId] = {
+        x,
+        y: side === 'up'
+          ? blockPosition.y - TIER_GAP - childHeight
+          : blockPosition.y + blockHeight + TIER_GAP,
+      };
+      x += getNodeWidth(nodesById, childId) + SIDE_ROOT_GAP;
+    });
+  });
+
+  return anchors;
 }
 
 export default function App() {
@@ -520,6 +600,12 @@ export default function App() {
 
       const nextPositions = {};
       const nextDirections = {};
+      const childSides = {
+        right: [],
+        left: [],
+        up: [],
+        down: [],
+      };
 
       block.ingredients.forEach((childId) => {
         if (!nodesById[childId]) {
@@ -532,6 +618,17 @@ export default function App() {
           ?? 'right';
 
         nextDirections[childId] = side;
+        childSides[side]?.push(childId);
+      });
+
+      const sideAnchors = getBlockSideAnchors(blockId, childSides, flowNodes, nodesById);
+
+      block.ingredients.forEach((childId) => {
+        if (!nodesById[childId]) {
+          return;
+        }
+
+        const side = nextDirections[childId] ?? 'right';
         Object.assign(
           nextPositions,
           layoutSubtreePositions(
@@ -539,7 +636,7 @@ export default function App() {
             childId,
             collapsedIds,
             side,
-            getConnectionAnchor(blockId, childId, side, flowNodes, nodesById),
+            sideAnchors[childId] ?? getConnectionAnchor(blockId, childId, side, flowNodes, nodesById),
           ),
         );
       });
