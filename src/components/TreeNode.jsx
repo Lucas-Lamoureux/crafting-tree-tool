@@ -39,7 +39,7 @@ const TILE_LABEL_PADDING = 26;
 const AVERAGE_CHARACTER_WIDTH = 7.4;
 
 function getTileWidth(data) {
-  if (data.isBlock) {
+  if (data.isBlock || data.isFrame) {
     return data.width;
   }
 
@@ -63,6 +63,7 @@ export default function TreeNode({ data, selected }) {
         data.isIngredientPickerParent ? 'is-picker-parent' : '',
         data.isIngredientPickerTarget ? 'is-picker-target' : '',
         data.ingredientCount > 0 ? `has-check-status is-check-${data.ingredientCheckStatus}` : '',
+        data.isFrame ? 'is-frame' : '',
       ].filter(Boolean).join(' ')}
       title={data.description || data.id}
       style={{
@@ -70,7 +71,7 @@ export default function TreeNode({ data, selected }) {
         height: data.height,
       }}
     >
-      {data.isBlock ? (
+      {data.isBlock || data.isFrame ? (
         blockSides.map(({ side, position, className }) => (
           <Handle
             key={`target-${side}`}
@@ -96,14 +97,23 @@ export default function TreeNode({ data, selected }) {
           onClick={(event) => event.stopPropagation()}
         />
       </label>
-      <strong>{data.id}</strong>
+      {data.isFrame ? (
+        <div className="frame-layout">
+          <strong className="frame-title">{data.frameTitle || data.id}</strong>
+          <div className="frame-section frame-section-left">Left</div>
+          <div className="frame-section frame-section-middle">Middle</div>
+          <div className="frame-section frame-section-right">Right</div>
+        </div>
+      ) : (
+        <strong>{data.id}</strong>
+      )}
       {data.ingredientCount > 0 && (
         <span className="node-badge">{data.collapsed ? '+' : data.ingredientCount}</span>
       )}
       {data.boundaryRole && (
         <span className="node-io-marker">{data.boundaryRole}</span>
       )}
-      {data.isBlock ? (
+      {data.isBlock || data.isFrame ? (
         blockSides.map(({ side, position, className }) => (
           <Handle
             key={`source-${side}`}

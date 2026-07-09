@@ -2,7 +2,7 @@ export default function BoundaryNode({ data }) {
   return (
     <section className="tree-boundary boundary-drag-handle">
       <strong>{data.title}</strong>
-      <span>Boundary</span>
+      <span>Frame</span>
     </section>
   );
 }

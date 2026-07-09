@@ -34,7 +34,7 @@ export default function ContextMenu({ menu, node, hasBoundary, onAction, onClose
         <button onClick={(event) => handleAction(event, 'add', onAction)}>Add Ingredient</button>
         <button onClick={(event) => handleAction(event, 'add-ingredients', onAction)}>Add Ingredients...</button>
         <button onClick={(event) => handleAction(event, 'remove', onAction)}>Remove Ingredient</button>
-        {node?.isBlock && (
+        {(node?.isBlock || node?.isFrame) && (
           <button onClick={(event) => handleAction(event, 'resize-block', onAction)}>Change Size</button>
         )}
         <div className="context-menu-group">
@@ -47,11 +47,6 @@ export default function ContextMenu({ menu, node, hasBoundary, onAction, onClose
           </div>
         </div>
         <button onClick={(event) => handleAction(event, 'auto-layout', onAction)}>Auto-layout tree</button>
-        {hasBoundary ? (
-          <button onClick={(event) => handleAction(event, 'remove-boundary', onAction)}>Remove Boundary</button>
-        ) : (
-          <button onClick={(event) => handleAction(event, 'add-boundary', onAction)}>Create Boundary</button>
-        )}
         <button onClick={(event) => handleAction(event, 'rename', onAction)}>Rename</button>
         <button className="danger" onClick={(event) => handleAction(event, 'delete', onAction)}>Delete</button>
       </div>

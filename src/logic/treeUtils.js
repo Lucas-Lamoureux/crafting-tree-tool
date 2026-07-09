@@ -10,6 +10,8 @@ export function createNode(id, options = {}) {
     ingredients: [],
     description: '',
     isBlock: Boolean(options.isBlock),
+    isFrame: Boolean(options.isFrame),
+    frameTitle: options.frameTitle,
     width: options.width,
     height: options.height,
   };
@@ -51,7 +53,7 @@ export function deriveEdges(nodesById, collapsedIds = new Set(), rootId = null, 
           id: `${parentId}->${ingredientId}`,
           source: parentId,
           target: ingredientId,
-          sourceHandle: nodesById[parentId]?.isBlock && side ? `source-${side}` : undefined,
+          sourceHandle: (nodesById[parentId]?.isBlock || nodesById[parentId]?.isFrame) && side ? `source-${side}` : undefined,
           type: 'straight',
           animated: false,
           style: { strokeWidth: 1.8 },
@@ -177,12 +179,14 @@ export function renameNode(nodesById, oldId, newId, rootId) {
     const id = node.id === oldId ? newId : node.id;
     next[id] = {
       id,
-      description: node.description ?? '',
-      ingredients: node.ingredients.map((ingredientId) => (ingredientId === oldId ? newId : ingredientId)),
-      isBlock: Boolean(node.isBlock),
-      width: node.width,
-      height: node.height,
-    };
+          description: node.description ?? '',
+          ingredients: node.ingredients.map((ingredientId) => (ingredientId === oldId ? newId : ingredientId)),
+          isBlock: Boolean(node.isBlock),
+          isFrame: Boolean(node.isFrame),
+          frameTitle: node.isFrame && node.frameTitle === oldId ? newId : node.frameTitle,
+          width: node.width,
+          height: node.height,
+        };
   });
 
   return {

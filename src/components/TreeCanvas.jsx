@@ -497,7 +497,7 @@ function getBoundaryNodes(boundaries = []) {
     position: boundary.position ?? { x: 120, y: 120 },
     data: {
       boundaryId: boundary.id,
-      title: boundary.title ?? 'Boundary',
+      title: boundary.title ?? 'Frame',
     },
     style: {
       width: boundary.width ?? EMPTY_BOUNDARY_WIDTH,

@@ -11,7 +11,7 @@ export default function Toolbar({
   onImport,
   onAddNode,
   onAddBlock,
-  onAddBoundary,
+  onAddFrame,
   onFit,
   fileInputRef,
   importInputRef,
@@ -34,7 +34,7 @@ export default function Toolbar({
       <div className="toolbar-actions">
         <button onClick={onAddNode}>Add Tile</button>
         <button onClick={onAddBlock}>Add Block</button>
-        <button onClick={onAddBoundary}>Add Boundary</button>
+        <button onClick={onAddFrame}>Add Frame</button>
         <button onClick={onFit}>Fit</button>
         <button onClick={onSave}>Save JSON</button>
         <button onClick={() => fileInputRef.current?.click()}>Load JSON</button>

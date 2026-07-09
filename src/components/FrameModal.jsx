@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
-const DEFAULT_WIDTH = 55;
-const DEFAULT_HEIGHT = 32;
+const DEFAULT_WIDTH = 240;
+const DEFAULT_HEIGHT = 180;
 
 function clampSize(value, fallback) {
   const size = Number(value);
@@ -10,38 +10,35 @@ function clampSize(value, fallback) {
     return fallback;
   }
 
-  return Math.min(600, Math.max(24, Math.round(size)));
+  return Math.min(600, Math.max(90, Math.round(size)));
 }
 
-export default function BlockModal({
+export default function FrameModal({
   open,
-  mode = 'create',
   existingIds,
-  initialBlock,
   onCancel,
   onSubmit,
 }) {
-  const [id, setId] = useState('');
+  const [title, setTitle] = useState('');
   const [width, setWidth] = useState(String(DEFAULT_WIDTH));
   const [height, setHeight] = useState(String(DEFAULT_HEIGHT));
   const firstInputRef = useRef(null);
-  const normalizedId = id.trim();
-  const duplicate = mode === 'create' && normalizedId && existingIds.has(normalizedId);
+  const normalizedTitle = title.trim();
+  const duplicate = normalizedTitle && existingIds.has(normalizedTitle);
   const widthValue = clampSize(width, DEFAULT_WIDTH);
   const heightValue = clampSize(height, DEFAULT_HEIGHT);
-  const canSubmit = mode === 'edit' || (normalizedId && !duplicate);
-  const itemLabel = initialBlock?.isFrame ? 'Frame' : 'Block';
+  const canSubmit = normalizedTitle && !duplicate;
 
   useEffect(() => {
     if (!open) {
       return;
     }
 
-    setId(initialBlock?.id ?? '');
-    setWidth(String(initialBlock?.width ?? DEFAULT_WIDTH));
-    setHeight(String(initialBlock?.height ?? DEFAULT_HEIGHT));
+    setTitle('');
+    setWidth(String(DEFAULT_WIDTH));
+    setHeight(String(DEFAULT_HEIGHT));
     window.requestAnimationFrame(() => firstInputRef.current?.focus());
-  }, [initialBlock, open]);
+  }, [open]);
 
   if (!open) {
     return null;
@@ -55,7 +52,8 @@ export default function BlockModal({
     }
 
     onSubmit({
-      id: normalizedId || initialBlock?.id,
+      id: normalizedTitle,
+      title: normalizedTitle,
       width: widthValue,
       height: heightValue,
     });
@@ -65,56 +63,51 @@ export default function BlockModal({
     <div className="modal-layer" role="presentation" onMouseDown={onCancel}>
       <form className="tile-modal block-modal" onSubmit={handleSubmit} onMouseDown={(event) => event.stopPropagation()}>
         <header>
-          <h2>{mode === 'edit' ? `Change ${itemLabel} Size` : 'Add Block'}</h2>
+          <h2>Add Frame</h2>
           <button type="button" aria-label="Close" onClick={onCancel}>x</button>
         </header>
 
-        {mode === 'create' ? (
-          <label>
-            <span>Block ID</span>
-            <input
-              ref={firstInputRef}
-              value={id}
-              onChange={(event) => setId(event.target.value)}
-              placeholder="Enter a unique ID"
-              aria-label="Block ID"
-            />
-          </label>
-        ) : (
-          <div className="ingredient-modal-parent">{initialBlock?.id}</div>
-        )}
+        <label>
+          <span>Frame Title</span>
+          <input
+            ref={firstInputRef}
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="Enter a unique title"
+            aria-label="Frame title"
+          />
+        </label>
 
         <div className="block-size-grid">
           <label>
-            <span>Width px</span>
+            <span>Total Width px</span>
             <input
-              ref={mode === 'edit' ? firstInputRef : null}
               type="number"
-              min="24"
+              min="90"
               max="600"
               value={width}
               onChange={(event) => setWidth(event.target.value)}
-              aria-label="Block width in pixels"
+              aria-label="Frame total width in pixels"
             />
           </label>
           <label>
-            <span>Height px</span>
+            <span>Total Height px</span>
             <input
               type="number"
-              min="24"
+              min="90"
               max="600"
               value={height}
               onChange={(event) => setHeight(event.target.value)}
-              aria-label="Block height in pixels"
+              aria-label="Frame total height in pixels"
             />
           </label>
         </div>
 
-        {duplicate && <p className="modal-error">That ID already exists.</p>}
+        {duplicate && <p className="modal-error">That title already exists.</p>}
 
         <footer>
           <button type="button" onClick={onCancel}>Cancel</button>
-          <button type="submit" disabled={!canSubmit}>{mode === 'edit' ? 'Update Size' : 'Create Block'}</button>
+          <button type="submit" disabled={!canSubmit}>Create Frame</button>
         </footer>
       </form>
     </div>

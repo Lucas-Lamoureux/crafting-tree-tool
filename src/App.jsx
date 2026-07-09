@@ -5,6 +5,7 @@ import PropertyPanel from './components/PropertyPanel.jsx';
 import AddTileModal from './components/AddTileModal.jsx';
 import AddIngredientsModal from './components/AddIngredientsModal.jsx';
 import BlockModal from './components/BlockModal.jsx';
+import FrameModal from './components/FrameModal.jsx';
 import SaveProjectModal from './components/SaveProjectModal.jsx';
 import { initialTree } from './data/initialTree.js';
 import { layoutSubtreePositions, layoutTree } from './logic/treeLayout.js';
@@ -588,6 +589,7 @@ export default function App() {
   const [contextMenu, setContextMenu] = useState(null);
   const [addTileModalOpen, setAddTileModalOpen] = useState(false);
   const [blockModal, setBlockModal] = useState(null);
+  const [frameModalOpen, setFrameModalOpen] = useState(false);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [message, setMessage] = useState('Ready');
   const flowRef = useRef(null);
@@ -609,7 +611,7 @@ export default function App() {
     });
 
     Object.entries(connectionSides).forEach(([parentId, children]) => {
-      if (!nodesById[parentId]?.isBlock) {
+      if (!nodesById[parentId]?.isBlock && !nodesById[parentId]?.isFrame) {
         return;
       }
 
@@ -654,6 +656,8 @@ export default function App() {
           ingredientCheckStatus,
           layoutDirection: directionByNode[node.id] ?? 'right',
           isBlock: Boolean(nodesById[node.id]?.isBlock),
+          isFrame: Boolean(nodesById[node.id]?.isFrame),
+          frameTitle: nodesById[node.id]?.frameTitle,
           width: nodesById[node.id]?.width,
           height: nodesById[node.id]?.height,
         },
@@ -737,7 +741,7 @@ export default function App() {
     const result = addIngredient(nodesById, parentId, ingredientId);
 
     if (setResult(result, `Added ${ingredientId} to ${parentId}.`)) {
-      if (nodesById[parentId]?.isBlock && side) {
+      if ((nodesById[parentId]?.isBlock || nodesById[parentId]?.isFrame) && side) {
         setConnectionSides((current) => ({
           ...current,
           [parentId]: {
@@ -1010,7 +1014,7 @@ export default function App() {
     const relayoutBlockTrees = (blockId) => {
       const block = nodesById[blockId];
 
-      if (!block?.isBlock) {
+      if (!block?.isBlock && !block?.isFrame) {
         return false;
       }
 
@@ -1094,7 +1098,7 @@ export default function App() {
     if (action === 'resize-block') {
       const node = nodesById[id];
 
-      if (node?.isBlock) {
+      if (node?.isBlock || node?.isFrame) {
         setBlockModal({
           mode: 'edit',
           id,
@@ -1276,6 +1280,10 @@ export default function App() {
     setBlockModal({ mode: 'create' });
   }, []);
 
+  const handleAddFrame = useCallback(() => {
+    setFrameModalOpen(true);
+  }, []);
+
   const handleAddBoundary = useCallback(() => {
     const position = getNewBoundaryPosition(flowNodes, selectedId, boundaries);
     const title = `Boundary ${boundaries.length + 1}`;
@@ -1361,8 +1369,31 @@ export default function App() {
     }
   }, [nodesById, setResult, textBlocks]);
 
+  const handleCreateFrame = useCallback(({ id, title, width, height }) => {
+    const normalizedId = normalizeId(id);
+
+    if (textBlocks[normalizedId]) {
+      setMessage(`ID "${normalizedId}" already exists.`);
+      return;
+    }
+
+    const result = addNode(nodesById, normalizedId, {
+      isFrame: true,
+      frameTitle: title,
+      width,
+      height,
+    });
+
+    if (setResult(result, `Added frame ${title}.`)) {
+      setSelectedId(normalizedId);
+      setSelectedIds(new Set([normalizedId]));
+      setRootId((current) => current ?? normalizedId);
+      setFrameModalOpen(false);
+    }
+  }, [nodesById, setResult, textBlocks]);
+
   const handleResizeBlock = useCallback(({ id, width, height }) => {
-    if (!nodesById[id]?.isBlock) {
+    if (!nodesById[id]?.isBlock && !nodesById[id]?.isFrame) {
       setBlockModal(null);
       return;
     }
@@ -1674,7 +1705,7 @@ export default function App() {
         onImport={handleImport}
         onAddNode={handleAddNode}
         onAddBlock={handleAddBlock}
-        onAddBoundary={handleAddBoundary}
+        onAddFrame={handleAddFrame}
         onFit={() => flowRef.current?.fitView({ padding: 0.25, duration: 350 })}
         fileInputRef={fileInputRef}
         importInputRef={importInputRef}
@@ -1760,6 +1791,13 @@ export default function App() {
         initialBlock={blockModal?.mode === 'edit' ? nodesById[blockModal.id] : null}
         onCancel={() => setBlockModal(null)}
         onSubmit={blockModal?.mode === 'edit' ? handleResizeBlock : handleCreateBlock}
+      />
+
+      <FrameModal
+        open={frameModalOpen}
+        existingIds={new Set([...Object.keys(nodesById), ...Object.keys(textBlocks)])}
+        onCancel={() => setFrameModalOpen(false)}
+        onSubmit={handleCreateFrame}
       />
 
       <SaveProjectModal
