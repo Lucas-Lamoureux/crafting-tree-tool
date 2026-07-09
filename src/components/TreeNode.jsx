@@ -102,7 +102,24 @@ export default function TreeNode({ data, selected }) {
           <strong className="frame-title">{data.frameTitle || data.id}</strong>
           <div className="frame-section frame-section-left">Left</div>
           <div className="frame-section frame-section-middle">
-            {data.frameContents?.length > 0
+            {data.frameNetwork?.items?.length > 0 ? (
+              <div className="frame-network">
+                <svg className="frame-network-edges" aria-hidden="true">
+                  {data.frameNetwork.edges.map((edge) => (
+                    <line key={edge.id} x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2} />
+                  ))}
+                </svg>
+                {data.frameNetwork.items.map((tile) => (
+                  <span
+                    className="frame-tile frame-network-tile"
+                    key={tile.id}
+                    style={{ left: tile.x, top: tile.y, width: tile.width, height: tile.height }}
+                  >
+                    {tile.id}
+                  </span>
+                ))}
+              </div>
+            ) : data.frameContents?.length > 0
               ? data.frameContents.map((tile) => <span className="frame-tile" key={tile.id}>{tile.id}</span>)
               : 'Middle'}
           </div>

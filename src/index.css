@@ -236,12 +236,30 @@ button:disabled {
 }
 
 .frame-section-middle {
-  display: flex;
-  flex-wrap: wrap;
-  align-content: center;
-  justify-content: center;
-  gap: 10px;
+  position: relative;
   padding: 10px;
+}
+
+.frame-network {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.frame-network-edges {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.frame-network-edges line {
+  stroke: #8ca79d;
+  stroke-width: 1.5;
 }
 
 .frame-tile {
@@ -262,6 +280,12 @@ button:disabled {
   text-overflow: ellipsis;
   white-space: nowrap;
   pointer-events: none;
+}
+
+.frame-network-tile {
+  position: absolute;
+  z-index: 1;
+  box-sizing: border-box;
 }
 
 .frame-section + .frame-section {

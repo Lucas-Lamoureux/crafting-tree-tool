@@ -124,6 +124,43 @@ function getNodeHeight(nodesById, id) {
   return DEFAULT_TILE_HEIGHT;
 }
 
+function buildFrameNetwork(nodesById, laidOutNodes, contentIds = []) {
+  const contentSet = new Set(contentIds);
+  const sourceNodes = laidOutNodes.filter((node) => contentSet.has(node.id));
+
+  if (sourceNodes.length === 0) {
+    return null;
+  }
+
+  const minX = Math.min(...sourceNodes.map((node) => node.position.x));
+  const minY = Math.min(...sourceNodes.map((node) => node.position.y));
+  const items = sourceNodes.map((node) => ({
+    id: node.id,
+    x: node.position.x - minX + 10,
+    y: node.position.y - minY + 10,
+    width: getNodeWidth(nodesById, node.id),
+    height: getNodeHeight(nodesById, node.id),
+  }));
+  const itemById = new Map(items.map((item) => [item.id, item]));
+  const edges = [];
+
+  items.forEach((item) => {
+    (nodesById[item.id]?.ingredients ?? []).forEach((childId) => {
+      const child = itemById.get(childId);
+      if (!child) return;
+      edges.push({
+        id: `${item.id}->${child.id}`,
+        x1: item.x + item.width / 2,
+        y1: item.y + item.height / 2,
+        x2: child.x + child.width / 2,
+        y2: child.y + child.height / 2,
+      });
+    });
+  });
+
+  return { items, edges };
+}
+
 function getConnectionAnchor(parentId, childId, side, flowNodes, nodesById) {
   const parentFlowNode = flowNodes.find((node) => node.id === parentId);
   const parentPosition = parentFlowNode?.position ?? { x: 0, y: 0 };
@@ -660,6 +697,11 @@ export default function App() {
           frameTitle: nodesById[node.id]?.frameTitle,
           frameContents: (nodesById[node.id]?.frameContentIds ?? (nodesById[node.id]?.frameContentId ? [nodesById[node.id]?.frameContentId] : []))
             .map((id) => ({ id })),
+          frameNetwork: buildFrameNetwork(
+            nodesById,
+            laidOutNodes,
+            nodesById[node.id]?.frameContentIds ?? [],
+          ),
           width: nodesById[node.id]?.width,
           height: nodesById[node.id]?.height,
         },
@@ -1402,21 +1444,25 @@ export default function App() {
 
     const existingIds = frame.frameContentIds ?? (frame.frameContentId ? [frame.frameContentId] : []);
     if (existingIds.includes(tileId)) return;
-    const contentIds = [...existingIds, tileId];
-    const contentTiles = contentIds.map((id) => nodesById[id]).filter(Boolean);
-    const contentWidth = contentTiles.reduce((total, item) => total + (item.width ?? Math.max(55, Math.ceil(item.id.length * 7.4 + 26))), 0) + Math.max(0, contentTiles.length - 1) * 10 + 20;
-    const contentHeight = Math.max(...contentTiles.map((item) => item.height ?? 32), 32) + 20;
+    const contentIds = [tileId, ...getDescendants(nodesById, tileId)];
+    const networkNodes = flowNodes.filter((item) => contentIds.includes(item.id));
+    const minX = Math.min(...networkNodes.map((item) => item.position.x));
+    const minY = Math.min(...networkNodes.map((item) => item.position.y));
+    const maxX = Math.max(...networkNodes.map((item) => item.position.x + getNodeWidth(nodesById, item.id)));
+    const maxY = Math.max(...networkNodes.map((item) => item.position.y + getNodeHeight(nodesById, item.id)));
+    const contentWidth = maxX - minX + 40;
+    const contentHeight = maxY - minY + 40;
     setNodesById((current) => ({
       ...current,
       [frameId]: {
         ...current[frameId],
-        frameContentIds: contentIds,
+        frameContentIds: [...new Set([...existingIds, ...contentIds])],
         width: Math.max(current[frameId].width ?? 240, contentWidth * 3),
         height: Math.max(current[frameId].height ?? 180, Math.ceil(contentHeight / 0.9)),
       },
     }));
     setMessage(`Placed ${tileId} in the middle of ${frame.frameTitle || frameId}.`);
-  }, [nodesById]);
+  }, [flowNodes, nodesById]);
 
   const handleResizeBlock = useCallback(({ id, width, height }) => {
     if (!nodesById[id]?.isBlock && !nodesById[id]?.isFrame) {
