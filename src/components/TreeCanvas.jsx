@@ -34,6 +34,7 @@ function TreeCanvasInner({
   rootId,
   connectionSides,
   boundaries,
+  boundaryLinks,
   selectedId,
   selectedIds,
   contextMenu,
@@ -47,7 +48,9 @@ function TreeCanvasInner({
   onMoveSubtree,
   onMoveNodes,
   onConnectIngredient,
+  onConnectBoundary,
   onDisconnectIngredient,
+  onDisconnectBoundary,
   onCancelIngredientPick,
   pendingIngredientParentId,
   onViewportReady,
@@ -126,8 +129,11 @@ function TreeCanvasInner({
   }, [beginConnectorFallback]);
 
   const edges = useMemo(
-    () => deriveEdges(nodesById, collapsedIds, rootId, connectionSides),
-    [nodesById, collapsedIds, rootId, connectionSides],
+    () => [
+      ...deriveEdges(nodesById, collapsedIds, rootId, connectionSides),
+      ...deriveBoundaryEdges(boundaryLinks, boundaries),
+    ],
+    [boundaries, boundaryLinks, nodesById, collapsedIds, rootId, connectionSides],
   );
 
   const boundaryRoles = useMemo(() => {
@@ -314,8 +320,18 @@ function TreeCanvasInner({
 
     connectionHandledRef.current = true;
     connectionStartRef.current = null;
+    if (isBoundaryNodeId(connection.source) || isBoundaryNodeId(connection.target)) {
+      onConnectBoundary(
+        stripBoundaryNodeId(connection.source),
+        stripBoundaryNodeId(connection.target),
+        connection.sourceHandle,
+        connection.targetHandle,
+      );
+      return;
+    }
+
     onConnectIngredient(connection.source, connection.target, parseHandleSide(connection.sourceHandle));
-  }, [onConnectIngredient]);
+  }, [onConnectBoundary, onConnectIngredient]);
 
   const handleConnectStart = useCallback((_, params) => {
     connectionStartRef.current = params?.handleType === 'source'
@@ -328,7 +344,7 @@ function TreeCanvasInner({
     const source = connectionStartRef.current;
     const sourceId = source?.id;
 
-    if (!sourceId || connectionHandledRef.current) {
+    if (!sourceId || connectionHandledRef.current || isBoundaryNodeId(sourceId)) {
       connectionStartRef.current = null;
       connectionHandledRef.current = false;
       return;
@@ -361,8 +377,14 @@ function TreeCanvasInner({
 
   const handleEdgeClick = useCallback((event, edge) => {
     event.stopPropagation();
+
+    if (edge.id.startsWith('boundary-link:')) {
+      onDisconnectBoundary(edge.id.replace(/^boundary-link:/, ''));
+      return;
+    }
+
     onDisconnectIngredient(edge.source, edge.target);
-  }, [onDisconnectIngredient]);
+  }, [onDisconnectBoundary, onDisconnectIngredient]);
 
   const handleInit = useCallback((instance) => {
     onViewportReady(instance);
@@ -432,6 +454,34 @@ function parseHandleSide(handleId) {
   return ['right', 'left', 'down', 'up'].includes(side) ? side : null;
 }
 
+function isBoundaryNodeId(id) {
+  return String(id ?? '').startsWith('boundary-');
+}
+
+function stripBoundaryNodeId(id) {
+  return String(id ?? '').replace(/^boundary-/, '');
+}
+
+function deriveBoundaryEdges(boundaryLinks = [], boundaries = []) {
+  const boundaryIds = new Set((boundaries ?? []).map((boundary) => boundary.id));
+
+  return (boundaryLinks ?? [])
+    .filter((link) => boundaryIds.has(link.source) && boundaryIds.has(link.target))
+    .map((link) => ({
+      id: `boundary-link:${link.id}`,
+      source: `boundary-${link.source}`,
+      target: `boundary-${link.target}`,
+      sourceHandle: link.sourceHandle,
+      targetHandle: link.targetHandle,
+      type: 'straight',
+      animated: false,
+      style: {
+        stroke: '#f0c96c',
+        strokeWidth: 2.2,
+      },
+    }));
+}
+
 function getBoundaryNodes(boundaries = [], localNodes, nodesById) {
   const positionById = Object.fromEntries(
     localNodes
@@ -486,7 +536,7 @@ function getBoundaryNodes(boundaries = [], localNodes, nodesById) {
         },
         draggable: true,
         selectable: false,
-        connectable: false,
+        connectable: true,
         deletable: false,
         focusable: false,
         dragHandle: '.boundary-drag-handle',

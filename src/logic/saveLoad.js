@@ -38,6 +38,7 @@ export function serializeProject(project) {
       checkedIds: [...(project.checkedIds ?? [])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
       collapsedIds: [...(project.collapsedIds ?? [])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
       boundaries: serializeBoundaries(project.boundaries, project.nodesById),
+      boundaryLinks: serializeBoundaryLinks(project.boundaryLinks, project.boundaries),
       positions,
       textBlocks: Object.values(project.textBlocks ?? {})
         .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }))
@@ -137,6 +138,7 @@ export function parseProject(jsonText) {
   const treeDirections = {};
   const connectionSides = {};
   const boundaries = [];
+  const boundaryLinks = [];
 
   if (parsed.treeDirections && typeof parsed.treeDirections === 'object' && !Array.isArray(parsed.treeDirections)) {
     Object.entries(parsed.treeDirections).forEach(([rawId, direction]) => {
@@ -225,6 +227,25 @@ export function parseProject(jsonText) {
     });
   }
 
+  if (Array.isArray(parsed.boundaryLinks)) {
+    const boundaryIds = new Set(boundaries.map((boundary) => boundary.id));
+
+    parsed.boundaryLinks.forEach((rawLink, index) => {
+      const source = normalizeId(rawLink?.source);
+      const target = normalizeId(rawLink?.target);
+
+      if (source && target && source !== target && boundaryIds.has(source) && boundaryIds.has(target)) {
+        boundaryLinks.push({
+          id: normalizeId(rawLink?.id) || `${source}->${target}-${index + 1}`,
+          source,
+          target,
+          sourceHandle: String(rawLink?.sourceHandle ?? ''),
+          targetHandle: String(rawLink?.targetHandle ?? ''),
+        });
+      }
+    });
+  }
+
   return {
     ok: true,
     project: {
@@ -237,8 +258,23 @@ export function parseProject(jsonText) {
       treeDirections,
       connectionSides,
       boundaries,
+      boundaryLinks,
     },
   };
+}
+
+function serializeBoundaryLinks(boundaryLinks = [], boundaries = []) {
+  const boundaryIds = new Set((boundaries ?? []).map((boundary) => boundary.id));
+
+  return (boundaryLinks ?? [])
+    .filter((link) => boundaryIds.has(link.source) && boundaryIds.has(link.target))
+    .map((link, index) => ({
+      id: link.id ?? `${link.source}->${link.target}-${index + 1}`,
+      source: link.source,
+      target: link.target,
+      sourceHandle: link.sourceHandle ?? '',
+      targetHandle: link.targetHandle ?? '',
+    }));
 }
 
 function serializeBoundaries(boundaries = [], nodesById = {}) {

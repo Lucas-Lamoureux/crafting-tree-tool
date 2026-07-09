@@ -303,6 +303,7 @@ function remapProjectForImport(project, currentState) {
   const usedBoundaryIds = new Set((boundaries ?? []).map((boundary) => boundary.id));
   const nodeIdMap = {};
   const textIdMap = {};
+  const boundaryIdMap = {};
   let renamedCount = 0;
 
   Object.keys(project.nodesById).forEach((oldId) => {
@@ -358,12 +359,22 @@ function remapProjectForImport(project, currentState) {
     }
 
     usedBoundaryIds.add(nextId);
+    boundaryIdMap[boundary.id.replace(/^import-/, '')] = nextId;
 
     return {
       ...boundary,
       id: nextId,
     };
   });
+  const importedBoundaryLinks = (project.boundaryLinks ?? [])
+    .filter((link) => boundaryIdMap[link.source] && boundaryIdMap[link.target])
+    .map((link, index) => ({
+      id: `${boundaryIdMap[link.source]}:${link.sourceHandle ?? 'out'}->${boundaryIdMap[link.target]}:${link.targetHandle ?? 'in'}-${index + 1}`,
+      source: boundaryIdMap[link.source],
+      target: boundaryIdMap[link.target],
+      sourceHandle: link.sourceHandle,
+      targetHandle: link.targetHandle,
+    }));
 
   Object.entries(project.connectionSides ?? {}).forEach(([oldParentId, children]) => {
     const parentId = nodeIdMap[oldParentId];
@@ -454,6 +465,7 @@ function remapProjectForImport(project, currentState) {
     treeDirections: importedTreeDirections,
     connectionSides: importedConnectionSides,
     boundaries: importedBoundaries,
+    boundaryLinks: importedBoundaryLinks,
     renamedCount,
   };
 }
@@ -468,6 +480,7 @@ export default function App() {
   const [treeDirections, setTreeDirections] = useState({});
   const [connectionSides, setConnectionSides] = useState({});
   const [boundaries, setBoundaries] = useState([]);
+  const [boundaryLinks, setBoundaryLinks] = useState([]);
   const [selectedId, setSelectedId] = useState(initialTree.rootId);
   const [selectedIds, setSelectedIds] = useState(() => new Set([initialTree.rootId]));
   const [pendingIngredientParentId, setPendingIngredientParentId] = useState(null);
@@ -572,6 +585,11 @@ export default function App() {
     setBoundaries((current) => current.filter((boundary) => nodesById[boundary.rootId]));
   }, [nodesById]);
 
+  useEffect(() => {
+    const boundaryIds = new Set(boundaries.map((boundary) => boundary.id));
+    setBoundaryLinks((current) => current.filter((link) => boundaryIds.has(link.source) && boundaryIds.has(link.target)));
+  }, [boundaries]);
+
   const setResult = useCallback((result, successMessage, options = {}) => {
     if (!result.ok) {
       setMessage(result.message);
@@ -656,6 +674,46 @@ export default function App() {
       setConnectionSides((current) => removeConnectionSide(current, parentId, ingredientId));
     }
   }, [nodesById, setResult]);
+
+  const connectBoundary = useCallback((sourceId, targetId, sourceHandle, targetHandle) => {
+    if (!sourceId || !targetId || sourceId === targetId) {
+      setMessage('Choose two different boundaries to connect.');
+      return;
+    }
+
+    const sourceBoundary = boundaries.find((boundary) => boundary.id === sourceId);
+    const targetBoundary = boundaries.find((boundary) => boundary.id === targetId);
+
+    if (!sourceBoundary || !targetBoundary) {
+      setMessage('Boundary connection needs two boundary boxes.');
+      return;
+    }
+
+    setBoundaryLinks((current) => {
+      const id = `${sourceId}:${sourceHandle ?? 'out'}->${targetId}:${targetHandle ?? 'in'}`;
+
+      if (current.some((link) => link.id === id)) {
+        return current;
+      }
+
+      return [
+        ...current,
+        {
+          id,
+          source: sourceId,
+          target: targetId,
+          sourceHandle,
+          targetHandle,
+        },
+      ];
+    });
+    setMessage(`Connected ${sourceBoundary.title ?? sourceId} to ${targetBoundary.title ?? targetId}.`);
+  }, [boundaries]);
+
+  const disconnectBoundary = useCallback((linkId) => {
+    setBoundaryLinks((current) => current.filter((link) => link.id !== linkId));
+    setMessage('Removed boundary connection.');
+  }, []);
 
   const removeNodeById = useCallback((id) => {
     if (textBlocks[id]) {
@@ -1332,12 +1390,13 @@ export default function App() {
         treeDirections,
         connectionSides,
         boundaries,
+        boundaryLinks,
         textBlocks: textBlocksToSave,
       }),
     );
     setSaveModalOpen(false);
     setMessage(`Project saved as ${filename}.`);
-  }, [boundaries, checkedIds, collapsedIds, connectionSides, flowNodes, nodesById, rootId, textBlocks, treeDirections]);
+  }, [boundaries, boundaryLinks, checkedIds, collapsedIds, connectionSides, flowNodes, nodesById, rootId, textBlocks, treeDirections]);
 
   const handleLoad = useCallback((event) => {
     const file = event.target.files?.[0];
@@ -1362,6 +1421,7 @@ export default function App() {
       setTreeDirections(result.project.treeDirections ?? {});
       setConnectionSides(result.project.connectionSides ?? {});
       setBoundaries(result.project.boundaries ?? []);
+      setBoundaryLinks(result.project.boundaryLinks ?? []);
       setMessage(`Loaded ${file.name}.`);
     });
 
@@ -1414,6 +1474,10 @@ export default function App() {
         ...current,
         ...imported.boundaries,
       ]);
+      setBoundaryLinks((current) => [
+        ...current,
+        ...imported.boundaryLinks,
+      ]);
       setSelectedId(imported.rootId);
       setSelectedIds(new Set(imported.rootId ? [imported.rootId] : []));
       setMessage(
@@ -1459,6 +1523,7 @@ export default function App() {
           rootId={rootId}
           connectionSides={connectionSides}
           boundaries={boundaries}
+          boundaryLinks={boundaryLinks}
           collapsedIds={collapsedIds}
           selectedId={selectedId}
           selectedIds={selectedIds}
@@ -1474,7 +1539,9 @@ export default function App() {
           onMoveSubtree={handleMoveSubtree}
           onMoveNodes={handleMoveNodes}
           onConnectIngredient={connectIngredient}
+          onConnectBoundary={connectBoundary}
           onDisconnectIngredient={disconnectIngredient}
+          onDisconnectBoundary={disconnectBoundary}
           onCancelIngredientPick={() => {
             if (pendingIngredientParentId) {
               setPendingIngredientParentId(null);
