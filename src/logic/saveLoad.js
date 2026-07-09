@@ -23,6 +23,7 @@ export function serializeProject(project) {
       isBlock: Boolean(node.isBlock),
       isFrame: Boolean(node.isFrame),
       frameTitle: node.frameTitle,
+      frameContentId: node.frameContentId,
       width: node.width,
       height: node.height,
     }));
@@ -111,6 +112,7 @@ export function parseProject(jsonText) {
       isBlock: Boolean(rawNode.isBlock),
       isFrame: Boolean(rawNode.isFrame),
       frameTitle: rawNode.isFrame ? String(rawNode.frameTitle ?? id) : undefined,
+      frameContentId: rawNode.isFrame ? normalizeId(rawNode.frameContentId) || undefined : undefined,
       width: rawNode.isBlock || rawNode.isFrame ? clampNodeSize(rawNode.width, 55) : undefined,
       height: rawNode.isBlock || rawNode.isFrame ? clampNodeSize(rawNode.height, 32) : undefined,
     };

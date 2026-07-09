@@ -12,6 +12,7 @@ export function createNode(id, options = {}) {
     isBlock: Boolean(options.isBlock),
     isFrame: Boolean(options.isFrame),
     frameTitle: options.frameTitle,
+    frameContentId: options.frameContentId,
     width: options.width,
     height: options.height,
   };

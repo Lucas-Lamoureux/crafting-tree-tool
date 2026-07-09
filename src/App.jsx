@@ -658,6 +658,9 @@ export default function App() {
           isBlock: Boolean(nodesById[node.id]?.isBlock),
           isFrame: Boolean(nodesById[node.id]?.isFrame),
           frameTitle: nodesById[node.id]?.frameTitle,
+          frameContent: nodesById[node.id]?.frameContentId
+            ? { id: nodesById[node.id]?.frameContentId }
+            : null,
           width: nodesById[node.id]?.width,
           height: nodesById[node.id]?.height,
         },
@@ -675,7 +678,8 @@ export default function App() {
       draggable: true,
     }));
 
-    return [...treeNodes, ...textBlockNodes];
+    const frameContentIds = new Set(Object.values(nodesById).map((item) => item.frameContentId).filter(Boolean));
+    return [...treeNodes.filter((node) => !frameContentIds.has(node.id)), ...textBlockNodes];
   },
     [checkedIds, collapsedIds, directionByNode, manualPositions, nodesById, rootId, selectedIds, textBlocks, treeDirections],
   );
@@ -1392,6 +1396,25 @@ export default function App() {
     }
   }, [nodesById, setResult, textBlocks]);
 
+  const handleDropTileIntoFrame = useCallback((tileId, frameId) => {
+    const tile = nodesById[tileId];
+    const frame = nodesById[frameId];
+    if (!tile || !frame?.isFrame || tileId === frameId) return;
+
+    const tileWidth = tile.width ?? Math.max(55, Math.ceil(tileId.length * 7.4 + 26));
+    const tileHeight = tile.height ?? 32;
+    setNodesById((current) => ({
+      ...current,
+      [frameId]: {
+        ...current[frameId],
+        frameContentId: tileId,
+        width: Math.max(current[frameId].width ?? 240, tileWidth + 20),
+        height: Math.max(current[frameId].height ?? 180, tileHeight * 10 + 20),
+      },
+    }));
+    setMessage(`Placed ${tileId} in the middle of ${frame.frameTitle || frameId}.`);
+  }, [nodesById]);
+
   const handleResizeBlock = useCallback(({ id, width, height }) => {
     if (!nodesById[id]?.isBlock && !nodesById[id]?.isFrame) {
       setBlockModal(null);
@@ -1739,6 +1762,7 @@ export default function App() {
           onDisconnectBoundary={disconnectBoundary}
           onAssignBoundary={handleAssignBoundary}
           onMoveBoundary={handleMoveBoundary}
+          onDropTileIntoFrame={handleDropTileIntoFrame}
           onCancelIngredientPick={() => {
             if (pendingIngredientParentId) {
               setPendingIngredientParentId(null);

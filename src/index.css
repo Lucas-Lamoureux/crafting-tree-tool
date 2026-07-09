@@ -230,6 +230,29 @@ button:disabled {
   line-height: 1;
 }
 
+.frame-section-middle {
+  padding: 10px;
+}
+
+.frame-tile {
+  display: grid;
+  place-items: center;
+  width: max-content;
+  min-width: 55px;
+  min-height: 32px;
+  max-width: 100%;
+  padding: 0 13px;
+  border: 1px solid #78938a;
+  background: #42564f;
+  color: #f0f5f2;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .frame-section + .frame-section {
   border-left: 1px solid #50625d;
 }

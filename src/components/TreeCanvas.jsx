@@ -53,6 +53,7 @@ function TreeCanvasInner({
   onDisconnectBoundary,
   onAssignBoundary,
   onMoveBoundary,
+  onDropTileIntoFrame,
   onCancelIngredientPick,
   pendingIngredientParentId,
   onViewportReady,
@@ -253,6 +254,27 @@ function TreeCanvasInner({
       y: node.position.y - baseDraggedPosition.y,
     };
 
+    if (node.type === 'treeNode' && !node.data?.isFrame) {
+      const draggedElement = [...document.querySelectorAll('.react-flow__node')]
+        .find((element) => element.getAttribute('data-id') === node.id);
+      const draggedRect = draggedElement?.getBoundingClientRect();
+      const centerX = draggedRect
+        ? draggedRect.left + draggedRect.width / 2
+        : node.position.x + (node.measured?.width ?? node.width ?? 55) / 2;
+      const centerY = draggedRect
+        ? draggedRect.top + draggedRect.height / 2
+        : node.position.y + (node.measured?.height ?? node.height ?? 32) / 2;
+      const middleSection = document.elementsFromPoint(centerX, centerY)
+        .find((element) => element.classList?.contains('frame-section-middle'));
+      const frameId = middleSection?.closest('.react-flow__node')?.getAttribute('data-id');
+
+      if (frameId && frameId !== node.id) {
+        onDropTileIntoFrame(node.id, frameId);
+        dragStateRef.current = null;
+        return;
+      }
+    }
+
     setLocalNodes((current) => current.map((item) => {
       const basePosition = dragState.basePositions[item.id];
 
@@ -304,7 +326,7 @@ function TreeCanvasInner({
       );
     }
     dragStateRef.current = null;
-  }, [onMoveBoundary, onMoveNodes, onMoveSubtree]);
+  }, [onDropTileIntoFrame, onMoveBoundary, onMoveNodes, onMoveSubtree]);
 
   const handleNodeClick = useCallback((event, node) => {
     if (node.type === 'boundary') {

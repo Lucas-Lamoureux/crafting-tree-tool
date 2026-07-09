@@ -101,7 +101,9 @@ export default function TreeNode({ data, selected }) {
         <div className="frame-layout">
           <strong className="frame-title">{data.frameTitle || data.id}</strong>
           <div className="frame-section frame-section-left">Left</div>
-          <div className="frame-section frame-section-middle">Middle</div>
+          <div className="frame-section frame-section-middle">
+            {data.frameContent ? <span className="frame-tile">{data.frameContent.id}</span> : 'Middle'}
+          </div>
           <div className="frame-section frame-section-right">Right</div>
         </div>
       ) : (
