@@ -310,12 +310,12 @@ button:disabled {
 .tree-boundary {
   width: 100%;
   height: 100%;
-  border: 2px solid rgba(240, 201, 108, 0.78);
-  border-radius: 6px;
-  background: rgba(240, 201, 108, 0.07);
-  box-shadow: 0 0 0 1px rgba(27, 36, 34, 0.4);
+  border: 1px solid #f0c96c;
+  border-radius: 3px;
+  background: transparent;
+  box-shadow: 0 0 0 1px rgba(27, 36, 34, 0.65);
   color: #f6ead0;
-  overflow: hidden;
+  overflow: visible;
   pointer-events: none;
 }
 
@@ -330,6 +330,13 @@ button:disabled {
   background: rgba(24, 31, 29, 0.82);
   font-size: 10px;
   line-height: 1.25;
+  cursor: grab;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.tree-boundary-header:active {
+  cursor: grabbing;
 }
 
 .tree-boundary-header strong,

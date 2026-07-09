@@ -1,7 +1,7 @@
 export default function BoundaryNode({ data }) {
   return (
     <section className="tree-boundary">
-      <header className="tree-boundary-header">
+      <header className="tree-boundary-header boundary-drag-handle">
         <strong>{data.title}</strong>
         <span>Inputs: {formatList(data.inputs)}</span>
         <span>Outputs: {formatList(data.outputs)}</span>

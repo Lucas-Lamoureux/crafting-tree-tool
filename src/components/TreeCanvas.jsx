@@ -192,8 +192,13 @@ function TreeCanvasInner({
   const handleNodeDragStart = useCallback((_, node) => {
     const selectedGroup = selectedIds.has(node.id) && selectedIds.size > 1;
     const idsToMove = new Set();
+    const boundary = node.type === 'boundary'
+      ? (boundaries ?? []).find((item) => `boundary-${item.id}` === node.id)
+      : (boundaries ?? []).find((item) => getConnectedTreeIds(nodesById, item.rootId).has(node.id));
 
-    if (selectedGroup) {
+    if (boundary) {
+      getConnectedTreeIds(nodesById, boundary.rootId).forEach((id) => idsToMove.add(id));
+    } else if (selectedGroup) {
       selectedIds.forEach((id) => {
         idsToMove.add(id);
 
@@ -209,7 +214,9 @@ function TreeCanvasInner({
       }
     }
 
-    const basePositions = {};
+    const basePositions = {
+      [node.id]: { ...node.position },
+    };
 
     localNodes.forEach((item) => {
       if (idsToMove.has(item.id)) {
@@ -220,10 +227,10 @@ function TreeCanvasInner({
     dragStateRef.current = {
       draggedId: node.id,
       idsToMove,
-      selectedGroup,
+      selectedGroup: selectedGroup || Boolean(boundary),
       basePositions,
     };
-  }, [collapsedIds, localNodes, nodesById, selectedIds]);
+  }, [boundaries, collapsedIds, localNodes, nodesById, selectedIds]);
 
   const handleNodeDrag = useCallback((_, node) => {
     const dragState = dragStateRef.current;
@@ -286,6 +293,10 @@ function TreeCanvasInner({
   }, [onMoveNodes, onMoveSubtree]);
 
   const handleNodeClick = useCallback((event, node) => {
+    if (node.type === 'boundary') {
+      return;
+    }
+
     if (pendingIngredientParentId) {
       if (node.type === 'treeNode') {
         onConnectIngredient(pendingIngredientParentId, node.id);
@@ -464,6 +475,7 @@ function getBoundaryNodes(boundaries = [], localNodes, nodesById) {
           y: bounds.minY - BOUNDARY_HEADER_HEIGHT - BOUNDARY_PADDING,
         },
         data: {
+          boundaryId: boundary.id,
           title: boundary.title ?? 'Boundary',
           inputs,
           outputs,
@@ -472,11 +484,12 @@ function getBoundaryNodes(boundaries = [], localNodes, nodesById) {
           width: bounds.maxX - bounds.minX + BOUNDARY_PADDING * 2,
           height: bounds.maxY - bounds.minY + BOUNDARY_PADDING * 2 + BOUNDARY_HEADER_HEIGHT,
         },
-        draggable: false,
+        draggable: true,
         selectable: false,
         connectable: false,
         deletable: false,
         focusable: false,
+        dragHandle: '.boundary-drag-handle',
         zIndex: 0,
       };
     })
