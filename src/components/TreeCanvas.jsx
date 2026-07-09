@@ -254,30 +254,6 @@ function TreeCanvasInner({
       y: node.position.y - baseDraggedPosition.y,
     };
 
-    if (node.type === 'treeNode' && !node.data?.isFrame) {
-      const draggedElement = [...document.querySelectorAll('.react-flow__node')]
-        .find((element) => element.getAttribute('data-id') === node.id);
-      const draggedRect = draggedElement?.getBoundingClientRect();
-      const centerX = draggedRect
-        ? draggedRect.left + draggedRect.width / 2
-        : node.position.x + (node.measured?.width ?? node.width ?? 55) / 2;
-      const centerY = draggedRect
-        ? draggedRect.top + draggedRect.height / 2
-        : node.position.y + (node.measured?.height ?? node.height ?? 32) / 2;
-      const middleSection = [...document.querySelectorAll('.frame-section-middle')]
-        .find((element) => {
-          const rect = element.getBoundingClientRect();
-          return centerX >= rect.left && centerX <= rect.right && centerY >= rect.top && centerY <= rect.bottom;
-        });
-      const frameId = middleSection?.closest('.react-flow__node')?.getAttribute('data-id');
-
-      if (frameId && frameId !== node.id) {
-        onDropTileIntoFrame(node.id, frameId);
-        dragStateRef.current = null;
-        return;
-      }
-    }
-
     setLocalNodes((current) => current.map((item) => {
       const basePosition = dragState.basePositions[item.id];
 
@@ -312,6 +288,30 @@ function TreeCanvasInner({
       x: node.position.x - baseDraggedPosition.x,
       y: node.position.y - baseDraggedPosition.y,
     };
+
+    if (node.type === 'treeNode' && !node.data?.isFrame) {
+      const draggedElement = [...document.querySelectorAll('.react-flow__node')]
+        .find((element) => element.getAttribute('data-id') === node.id);
+      const draggedRect = draggedElement?.getBoundingClientRect();
+      const centerX = draggedRect
+        ? draggedRect.left + draggedRect.width / 2
+        : node.position.x + (node.measured?.width ?? node.width ?? 55) / 2;
+      const centerY = draggedRect
+        ? draggedRect.top + draggedRect.height / 2
+        : node.position.y + (node.measured?.height ?? node.height ?? 32) / 2;
+      const middleSection = [...document.querySelectorAll('.frame-section-middle')]
+        .find((element) => {
+          const rect = element.getBoundingClientRect();
+          return centerX >= rect.left && centerX <= rect.right && centerY >= rect.top && centerY <= rect.bottom;
+        });
+      const frameId = middleSection?.closest('.react-flow__node')?.getAttribute('data-id');
+
+      if (frameId && frameId !== node.id) {
+        onDropTileIntoFrame(node.id, frameId);
+        dragStateRef.current = null;
+        return;
+      }
+    }
 
     if (node.type === 'boundary' && dragState.idsToMove.size === 0) {
       onMoveBoundary(node.data.boundaryId, node.position);
