@@ -1,6 +1,6 @@
 import SearchBar from './SearchBar.jsx';
 
-const EDIT_VERSION = 20;
+const EDIT_VERSION = 21;
 
 export default function Toolbar({
   nodeCount,

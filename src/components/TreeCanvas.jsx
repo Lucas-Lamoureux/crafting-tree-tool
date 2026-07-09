@@ -26,8 +26,8 @@ const TILE_LABEL_PADDING = 26;
 const AVERAGE_CHARACTER_WIDTH = 7.4;
 const BOUNDARY_PADDING = 18;
 const BOUNDARY_HEADER_HEIGHT = 44;
-const EMPTY_BOUNDARY_WIDTH = 440;
-const EMPTY_BOUNDARY_HEIGHT = 230;
+const EMPTY_BOUNDARY_WIDTH = 260;
+const EMPTY_BOUNDARY_HEIGHT = 132;
 
 function TreeCanvasInner({
   flowNodes,
@@ -536,7 +536,7 @@ function getBoundaryNodes(boundaries = [], localNodes, nodesById) {
           deletable: false,
           focusable: false,
           dragHandle: '.boundary-drag-handle',
-          zIndex: 20,
+          zIndex: 70,
         };
       }
 
@@ -574,16 +574,22 @@ function getBoundaryNodes(boundaries = [], localNodes, nodesById) {
           outputs,
         },
         style: {
-          width: bounds.maxX - bounds.minX + BOUNDARY_PADDING * 2,
-          height: bounds.maxY - bounds.minY + BOUNDARY_PADDING * 2 + BOUNDARY_HEADER_HEIGHT,
+          width: Math.max(
+            boundary.width ?? EMPTY_BOUNDARY_WIDTH,
+            bounds.maxX - bounds.minX + BOUNDARY_PADDING * 2,
+          ),
+          height: Math.max(
+            boundary.height ?? EMPTY_BOUNDARY_HEIGHT,
+            bounds.maxY - bounds.minY + BOUNDARY_PADDING * 2 + BOUNDARY_HEADER_HEIGHT,
+          ),
         },
         draggable: true,
         selectable: false,
         connectable: true,
         deletable: false,
-        focusable: false,
-        dragHandle: '.boundary-drag-handle',
-        zIndex: 20,
+          focusable: false,
+          dragHandle: '.boundary-drag-handle',
+          zIndex: 20,
       };
     })
     .filter(Boolean);

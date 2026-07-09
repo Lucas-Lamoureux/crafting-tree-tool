@@ -95,8 +95,8 @@ const TIER_GAP = 50;
 const SIDE_ROOT_GAP = 4;
 const TILE_LABEL_PADDING = 26;
 const AVERAGE_CHARACTER_WIDTH = 7.4;
-const EMPTY_BOUNDARY_WIDTH = 440;
-const EMPTY_BOUNDARY_HEIGHT = 230;
+const EMPTY_BOUNDARY_WIDTH = 260;
+const EMPTY_BOUNDARY_HEIGHT = 132;
 const BOUNDARY_TITLE_HEIGHT = 44;
 const BOUNDARY_SECTION_GAP = 16;
 
@@ -268,6 +268,19 @@ function getBoundaryStartPosition(flowNodes, boundaries) {
     x: Math.max(...positionedItems.map((item) => item.x + item.width)) + 120,
     y: Math.min(...positionedItems.map((item) => item.y)),
   };
+}
+
+function getNewBoundaryPosition(flowNodes, selectedId, boundaries) {
+  const selectedNode = flowNodes.find((node) => node.id === selectedId);
+
+  if (selectedNode) {
+    return {
+      x: selectedNode.position.x + getNodeWidth({}, selectedNode.id) + 90,
+      y: selectedNode.position.y - 48,
+    };
+  }
+
+  return getBoundaryStartPosition(flowNodes, boundaries);
 }
 
 function getBoundaryTreePositions(nodesById, rootNodeId, collapsedIds, direction, boundaryPosition) {
@@ -1270,19 +1283,26 @@ export default function App() {
       return;
     }
 
+    const position = getNewBoundaryPosition(flowNodes, selectedId, boundaries);
+
     setBoundaries((current) => [
       ...current,
-          {
-            id: getUniqueBoundaryId(current),
-            rootId: null,
-            title,
-            position: getBoundaryStartPosition(flowNodes, current),
-            width: EMPTY_BOUNDARY_WIDTH,
-            height: EMPTY_BOUNDARY_HEIGHT,
-          },
-        ]);
+      {
+        id: getUniqueBoundaryId(current),
+        rootId: null,
+        title,
+        position,
+        width: EMPTY_BOUNDARY_WIDTH,
+        height: EMPTY_BOUNDARY_HEIGHT,
+      },
+    ]);
+    flowRef.current?.setCenter(
+      position.x + EMPTY_BOUNDARY_WIDTH / 2,
+      position.y + EMPTY_BOUNDARY_HEIGHT / 2,
+      { zoom: 1.15, duration: 350 },
+    );
     setMessage(`Added boundary "${title}".`);
-  }, [flowNodes]);
+  }, [boundaries, flowNodes, selectedId]);
 
   const handleAssignBoundary = useCallback((boundaryId, rootNodeId) => {
     if (!nodesById[rootNodeId]) {
