@@ -116,6 +116,7 @@ export default function TreeNode({ data, selected }) {
                     style={{ left: tile.x, top: tile.y, width: tile.width, height: tile.height }}
                   >
                     {tile.id}
+                    {tile.ioRole && <span className="frame-tile-io">{tile.ioRole}</span>}
                   </span>
                 ))}
               </div>
@@ -131,8 +132,8 @@ export default function TreeNode({ data, selected }) {
       {data.ingredientCount > 0 && (
         <span className="node-badge">{data.collapsed ? '+' : data.ingredientCount}</span>
       )}
-      {data.boundaryRole && (
-        <span className="node-io-marker">{data.boundaryRole}</span>
+      {(data.ioRole || data.boundaryRole) && (
+        <span className="node-io-marker">{data.ioRole || data.boundaryRole}</span>
       )}
       {data.isBlock || data.isFrame ? (
         blockSides.map(({ side, position, className }) => (

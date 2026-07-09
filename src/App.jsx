@@ -124,6 +124,18 @@ function getNodeHeight(nodesById, id) {
   return DEFAULT_TILE_HEIGHT;
 }
 
+function getTileIoRole(nodesById, id) {
+  const ids = getConnectedTreeIds(nodesById, id);
+  const { inputs, outputs } = getTreeIO(nodesById, ids);
+  const isInput = inputs.includes(id);
+  const isOutput = outputs.includes(id);
+
+  if (isInput && isOutput) return 'I/O';
+  if (isInput) return 'I';
+  if (isOutput) return 'O';
+  return null;
+}
+
 function buildFrameNetwork(nodesById, laidOutNodes, contentIds = []) {
   const contentSet = new Set(contentIds);
   const sourceNodes = laidOutNodes.filter((node) => contentSet.has(node.id));
@@ -136,6 +148,7 @@ function buildFrameNetwork(nodesById, laidOutNodes, contentIds = []) {
   const minY = Math.min(...sourceNodes.map((node) => node.position.y));
   const items = sourceNodes.map((node) => ({
     id: node.id,
+    ioRole: getTileIoRole(nodesById, node.id),
     x: node.position.x - minX + 10,
     y: node.position.y - minY + 10,
     width: getNodeWidth(nodesById, node.id),
@@ -695,6 +708,7 @@ export default function App() {
           isBlock: Boolean(nodesById[node.id]?.isBlock),
           isFrame: Boolean(nodesById[node.id]?.isFrame),
           frameTitle: nodesById[node.id]?.frameTitle,
+          ioRole: getTileIoRole(nodesById, node.id),
           frameContents: (nodesById[node.id]?.frameContentIds ?? (nodesById[node.id]?.frameContentId ? [nodesById[node.id]?.frameContentId] : []))
             .map((id) => ({ id })),
           frameNetwork: buildFrameNetwork(
