@@ -321,8 +321,13 @@ button:disabled {
 }
 
 .react-flow__node-boundary {
-  pointer-events: none;
+  pointer-events: auto;
   z-index: 20 !important;
+}
+
+.react-flow__node-treeNode,
+.react-flow__node-textBlock {
+  z-index: 30 !important;
 }
 
 .tree-boundary {
@@ -354,38 +359,76 @@ button:disabled {
   text-transform: uppercase;
 }
 
-.tree-boundary-header {
+.tree-boundary-title {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
+  place-items: center;
   min-height: 42px;
-  padding: 7px 10px;
+  padding: 8px 12px;
   border-bottom: 1px solid rgba(121, 199, 160, 0.65);
   background: rgba(24, 31, 29, 0.92);
-  font-size: 10px;
-  line-height: 1.25;
+  color: #dff8ea;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.1;
   cursor: grab;
   pointer-events: auto;
   user-select: none;
 }
 
-.tree-boundary-header:active {
+.tree-boundary-title:active {
   cursor: grabbing;
 }
 
-.tree-boundary-header strong,
-.tree-boundary-header span {
+.tree-boundary-title strong {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.tree-boundary-header strong {
+.tree-boundary-sections {
+  display: grid;
+  grid-template-columns: minmax(82px, 0.58fr) minmax(180px, 1.5fr) minmax(82px, 0.58fr);
+  height: calc(100% - 42px);
+  min-height: 136px;
+}
+
+.tree-boundary-section {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+  border-right: 1px solid rgba(121, 199, 160, 0.42);
+  pointer-events: none;
+}
+
+.tree-boundary-section:last-child {
+  border-right: 0;
+}
+
+.tree-boundary-section span {
   color: #79c7a0;
-  font-size: 11px;
+  font-size: 10px;
+  font-weight: 900;
   text-transform: uppercase;
+}
+
+.tree-boundary-section strong {
+  min-width: 0;
+  color: #f2f7f4;
+  font-size: 11px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tree-boundary-section-house {
+  background: rgba(37, 47, 45, 0.24);
+}
+
+.tree-boundary-section-side {
+  background: rgba(18, 29, 26, 0.26);
 }
 
 .boundary-side {

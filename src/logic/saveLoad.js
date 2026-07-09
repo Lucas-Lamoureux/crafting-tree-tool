@@ -216,12 +216,22 @@ export function parseProject(jsonText) {
   if (Array.isArray(parsed.boundaries)) {
     parsed.boundaries.forEach((rawBoundary, index) => {
       const rootId = normalizeId(rawBoundary?.rootId);
+      const x = Number(rawBoundary?.position?.x);
+      const y = Number(rawBoundary?.position?.y);
+      const width = Number(rawBoundary?.width);
+      const height = Number(rawBoundary?.height);
 
-      if (nodesById[rootId]) {
+      if (!rootId || nodesById[rootId]) {
         boundaries.push({
           id: normalizeId(rawBoundary?.id) || `boundary-${index + 1}`,
-          rootId,
+          rootId: rootId || null,
           title: String(rawBoundary?.title ?? 'Boundary'),
+          position: {
+            x: Number.isFinite(x) ? x : 120,
+            y: Number.isFinite(y) ? y : 120,
+          },
+          width: Number.isFinite(width) ? Math.max(260, width) : 440,
+          height: Number.isFinite(height) ? Math.max(180, height) : 230,
         });
       }
     });
@@ -279,11 +289,14 @@ function serializeBoundaryLinks(boundaryLinks = [], boundaries = []) {
 
 function serializeBoundaries(boundaries = [], nodesById = {}) {
   return boundaries
-    .filter((boundary) => nodesById[boundary.rootId])
+    .filter((boundary) => !boundary.rootId || nodesById[boundary.rootId])
     .map((boundary, index) => ({
       id: boundary.id ?? `boundary-${index + 1}`,
-      rootId: boundary.rootId,
+      rootId: boundary.rootId ?? null,
       title: boundary.title ?? 'Boundary',
+      position: boundary.position,
+      width: boundary.width,
+      height: boundary.height,
     }));
 }
 

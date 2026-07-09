@@ -25,7 +25,9 @@ const DEFAULT_TILE_HEIGHT = 32;
 const TILE_LABEL_PADDING = 26;
 const AVERAGE_CHARACTER_WIDTH = 7.4;
 const BOUNDARY_PADDING = 18;
-const BOUNDARY_HEADER_HEIGHT = 54;
+const BOUNDARY_HEADER_HEIGHT = 44;
+const EMPTY_BOUNDARY_WIDTH = 440;
+const EMPTY_BOUNDARY_HEIGHT = 230;
 
 function TreeCanvasInner({
   flowNodes,
@@ -51,6 +53,8 @@ function TreeCanvasInner({
   onConnectBoundary,
   onDisconnectIngredient,
   onDisconnectBoundary,
+  onAssignBoundary,
+  onMoveBoundary,
   onCancelIngredientPick,
   pendingIngredientParentId,
   onViewportReady,
@@ -286,6 +290,22 @@ function TreeCanvasInner({
       y: node.position.y - baseDraggedPosition.y,
     };
 
+    if (node.type === 'boundary' && dragState.idsToMove.size === 0) {
+      onMoveBoundary(node.data.boundaryId, node.position);
+      dragStateRef.current = null;
+      return;
+    }
+
+    if (node.type === 'treeNode') {
+      const targetBoundary = findBoundaryDropTarget(node, boundaryNodes, nodesById);
+
+      if (targetBoundary) {
+        onAssignBoundary(targetBoundary.data.boundaryId, node.id);
+        dragStateRef.current = null;
+        return;
+      }
+    }
+
     if (dragState.selectedGroup) {
       onMoveNodes(dragState.idsToMove, delta);
     } else {
@@ -296,7 +316,7 @@ function TreeCanvasInner({
       );
     }
     dragStateRef.current = null;
-  }, [onMoveNodes, onMoveSubtree]);
+  }, [boundaryNodes, nodesById, onAssignBoundary, onMoveBoundary, onMoveNodes, onMoveSubtree]);
 
   const handleNodeClick = useCallback((event, node) => {
     if (node.type === 'boundary') {
@@ -495,7 +515,29 @@ function getBoundaryNodes(boundaries = [], localNodes, nodesById) {
       const visibleIds = [...ids].filter((id) => positionById[id]);
 
       if (visibleIds.length === 0) {
-        return null;
+        return {
+          id: `boundary-${boundary.id}`,
+          type: 'boundary',
+          position: boundary.position ?? { x: 120, y: 120 },
+          data: {
+            boundaryId: boundary.id,
+            rootId: null,
+            title: boundary.title ?? 'Boundary',
+            inputs: [],
+            outputs: [],
+          },
+          style: {
+            width: boundary.width ?? EMPTY_BOUNDARY_WIDTH,
+            height: boundary.height ?? EMPTY_BOUNDARY_HEIGHT,
+          },
+          draggable: true,
+          selectable: false,
+          connectable: true,
+          deletable: false,
+          focusable: false,
+          dragHandle: '.boundary-drag-handle',
+          zIndex: 20,
+        };
       }
 
       const bounds = visibleIds.reduce((current, id) => {
@@ -526,6 +568,7 @@ function getBoundaryNodes(boundaries = [], localNodes, nodesById) {
         },
         data: {
           boundaryId: boundary.id,
+          rootId: boundary.rootId,
           title: boundary.title ?? 'Boundary',
           inputs,
           outputs,
@@ -544,6 +587,22 @@ function getBoundaryNodes(boundaries = [], localNodes, nodesById) {
       };
     })
     .filter(Boolean);
+}
+
+function findBoundaryDropTarget(node, boundaryNodes, nodesById) {
+  const nodeWidth = getNodeWidth(nodesById, node.id);
+  const nodeHeight = getNodeHeight(nodesById, node.id);
+  const nodeCenter = {
+    x: node.position.x + nodeWidth / 2,
+    y: node.position.y + nodeHeight / 2,
+  };
+
+  return boundaryNodes.find((boundaryNode) => (
+    nodeCenter.x >= boundaryNode.position.x
+    && nodeCenter.x <= boundaryNode.position.x + Number(boundaryNode.style?.width ?? 0)
+    && nodeCenter.y >= boundaryNode.position.y
+    && nodeCenter.y <= boundaryNode.position.y + Number(boundaryNode.style?.height ?? 0)
+  ));
 }
 
 function getNodeWidth(nodesById, id) {

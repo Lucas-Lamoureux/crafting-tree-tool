@@ -20,7 +20,7 @@ import {
   updateDescription,
 } from './logic/treeUtils.js';
 import { downloadJson, parseProject, serializeProject } from './logic/saveLoad.js';
-import { getConnectedTreeIds } from './logic/boundaries.js';
+import { getConnectedTreeIds, getTreeIO } from './logic/boundaries.js';
 
 function initialNodesById() {
   return Object.fromEntries(
@@ -95,6 +95,10 @@ const TIER_GAP = 50;
 const SIDE_ROOT_GAP = 4;
 const TILE_LABEL_PADDING = 26;
 const AVERAGE_CHARACTER_WIDTH = 7.4;
+const EMPTY_BOUNDARY_WIDTH = 440;
+const EMPTY_BOUNDARY_HEIGHT = 230;
+const BOUNDARY_TITLE_HEIGHT = 44;
+const BOUNDARY_SECTION_GAP = 16;
 
 function getNodeWidth(nodesById, id) {
   const node = nodesById[id];
@@ -240,17 +244,100 @@ function getUniqueBoundaryId(boundaries) {
   return id;
 }
 
+function getBoundaryStartPosition(flowNodes, boundaries) {
+  const positionedItems = [
+    ...flowNodes.map((node) => ({
+      x: node.position.x,
+      y: node.position.y,
+      width: getNodeWidth({}, node.id),
+      height: getNodeHeight({}, node.id),
+    })),
+    ...boundaries.map((boundary) => ({
+      x: boundary.position?.x ?? 120,
+      y: boundary.position?.y ?? 120,
+      width: boundary.width ?? EMPTY_BOUNDARY_WIDTH,
+      height: boundary.height ?? EMPTY_BOUNDARY_HEIGHT,
+    })),
+  ];
+
+  if (positionedItems.length === 0) {
+    return { x: 120, y: 120 };
+  }
+
+  return {
+    x: Math.max(...positionedItems.map((item) => item.x + item.width)) + 120,
+    y: Math.min(...positionedItems.map((item) => item.y)),
+  };
+}
+
+function getBoundaryTreePositions(nodesById, rootNodeId, collapsedIds, direction, boundaryPosition) {
+  const positions = layoutSubtreePositions(
+    nodesById,
+    rootNodeId,
+    collapsedIds,
+    direction,
+    {
+      x: boundaryPosition.x + 160,
+      y: boundaryPosition.y + BOUNDARY_TITLE_HEIGHT + BOUNDARY_SECTION_GAP,
+    },
+  );
+  const treeIds = new Set([rootNodeId, ...getDescendants(nodesById, rootNodeId, collapsedIds)]);
+  const { inputs, outputs } = getTreeIO(nodesById, treeIds);
+  const sideIds = new Set([...inputs, ...outputs]);
+  const middleEntries = Object.entries(positions).filter(([id]) => !sideIds.has(id));
+  const middleBounds = getPositionBounds(
+    middleEntries.map(([id, position]) => ({
+      x: position.x,
+      y: position.y,
+      width: getNodeWidth(nodesById, id),
+      height: getNodeHeight(nodesById, id),
+    })),
+  );
+  const middleCenterY = middleBounds
+    ? (middleBounds.minY + middleBounds.maxY) / 2
+    : boundaryPosition.y + BOUNDARY_TITLE_HEIGHT + 80;
+  const nextPositions = { ...positions };
+  const inputX = boundaryPosition.x + 22;
+  const outputX = boundaryPosition.x + EMPTY_BOUNDARY_WIDTH - 92;
+
+  stackBoundarySideTiles(inputs, inputX, middleCenterY, nodesById, nextPositions);
+  stackBoundarySideTiles(outputs, outputX, middleCenterY, nodesById, nextPositions);
+
+  return nextPositions;
+}
+
+function stackBoundarySideTiles(ids, x, centerY, nodesById, positions) {
+  if (ids.length === 0) {
+    return;
+  }
+
+  const totalHeight = ids.reduce(
+    (total, id, index) => total + getNodeHeight(nodesById, id) + (index > 0 ? SIDE_ROOT_GAP : 0),
+    0,
+  );
+  let y = centerY - totalHeight / 2;
+
+  ids.forEach((id, index) => {
+    if (index > 0) {
+      y += SIDE_ROOT_GAP;
+    }
+
+    positions[id] = { x, y };
+    y += getNodeHeight(nodesById, id);
+  });
+}
+
 function getBoundaryForNode(boundaries, nodesById, nodeId) {
   return boundaries.find((boundary) => getConnectedTreeIds(nodesById, boundary.rootId).has(nodeId)) ?? null;
 }
 
 function remapBoundariesForImport(boundaries = [], nodeIdMap = {}) {
   return boundaries
-    .filter((boundary) => nodeIdMap[boundary.rootId])
+    .filter((boundary) => !boundary.rootId || nodeIdMap[boundary.rootId])
     .map((boundary) => ({
       ...boundary,
       id: `import-${boundary.id}`,
-      rootId: nodeIdMap[boundary.rootId],
+      rootId: boundary.rootId ? nodeIdMap[boundary.rootId] : null,
     }));
 }
 
@@ -582,7 +669,7 @@ export default function App() {
   );
 
   useEffect(() => {
-    setBoundaries((current) => current.filter((boundary) => nodesById[boundary.rootId]));
+    setBoundaries((current) => current.filter((boundary) => !boundary.rootId || nodesById[boundary.rootId]));
   }, [nodesById]);
 
   useEffect(() => {
@@ -1176,6 +1263,67 @@ export default function App() {
     setBlockModal({ mode: 'create' });
   }, []);
 
+  const handleAddBoundary = useCallback(() => {
+    const title = normalizeId(window.prompt('Boundary title:', 'Boundary'));
+
+    if (!title) {
+      return;
+    }
+
+    setBoundaries((current) => [
+      ...current,
+          {
+            id: getUniqueBoundaryId(current),
+            rootId: null,
+            title,
+            position: getBoundaryStartPosition(flowNodes, current),
+            width: EMPTY_BOUNDARY_WIDTH,
+            height: EMPTY_BOUNDARY_HEIGHT,
+          },
+        ]);
+    setMessage(`Added boundary "${title}".`);
+  }, [flowNodes]);
+
+  const handleAssignBoundary = useCallback((boundaryId, rootNodeId) => {
+    if (!nodesById[rootNodeId]) {
+      return;
+    }
+
+    const boundary = boundaries.find((item) => item.id === boundaryId);
+    const boundaryPosition = boundary?.position ?? { x: 120, y: 120 };
+    const direction = treeDirections[rootNodeId] ?? directionByNode[rootNodeId] ?? 'right';
+    const positions = getBoundaryTreePositions(
+      nodesById,
+      rootNodeId,
+      collapsedIds,
+      direction,
+      boundaryPosition,
+    );
+
+    setBoundaries((current) => current.map((boundary) => (
+      boundary.id === boundaryId
+        ? {
+          ...boundary,
+          rootId: rootNodeId,
+          title: boundary.title || `${rootNodeId} boundary`,
+        }
+        : boundary
+    )));
+    setManualPositions((current) => ({
+      ...current,
+      ...positions,
+    }));
+    setMessage(`Moved ${rootNodeId}'s connected tree into the boundary.`);
+  }, [boundaries, collapsedIds, directionByNode, nodesById, treeDirections]);
+
+  const handleMoveBoundary = useCallback((boundaryId, position) => {
+    setBoundaries((current) => current.map((boundary) => (
+      boundary.id === boundaryId
+        ? { ...boundary, position }
+        : boundary
+    )));
+  }, []);
+
   const handleCreateBlock = useCallback(({ id, width, height }) => {
     const normalizedId = normalizeId(id);
 
@@ -1511,6 +1659,7 @@ export default function App() {
         onImport={handleImport}
         onAddNode={handleAddNode}
         onAddBlock={handleAddBlock}
+        onAddBoundary={handleAddBoundary}
         onFit={() => flowRef.current?.fitView({ padding: 0.25, duration: 350 })}
         fileInputRef={fileInputRef}
         importInputRef={importInputRef}
@@ -1542,6 +1691,8 @@ export default function App() {
           onConnectBoundary={connectBoundary}
           onDisconnectIngredient={disconnectIngredient}
           onDisconnectBoundary={disconnectBoundary}
+          onAssignBoundary={handleAssignBoundary}
+          onMoveBoundary={handleMoveBoundary}
           onCancelIngredientPick={() => {
             if (pendingIngredientParentId) {
               setPendingIngredientParentId(null);

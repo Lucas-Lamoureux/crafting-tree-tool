@@ -3,12 +3,23 @@ import { Handle, Position } from '@xyflow/react';
 export default function BoundaryNode({ data }) {
   return (
     <section className="tree-boundary">
-      <div className="tree-boundary-label">Boundary</div>
-      <header className="tree-boundary-header boundary-drag-handle">
+      <header className="tree-boundary-title boundary-drag-handle">
         <strong>{data.title}</strong>
-        <span>Inputs: {formatList(data.inputs)}</span>
-        <span>Outputs: {formatList(data.outputs)}</span>
       </header>
+      <div className="tree-boundary-sections">
+        <aside className="tree-boundary-section tree-boundary-section-side">
+          <span>Inputs</span>
+          <strong>{formatList(data.inputs)}</strong>
+        </aside>
+        <main className="tree-boundary-section tree-boundary-section-house">
+          <span>House</span>
+          <strong>{data.rootId ? 'Tree inside' : 'Drop a tile here'}</strong>
+        </main>
+        <aside className="tree-boundary-section tree-boundary-section-side">
+          <span>Outputs</span>
+          <strong>{formatList(data.outputs)}</strong>
+        </aside>
+      </div>
       <div className="boundary-side boundary-side-left">
         {(data.inputs ?? []).map((id, index) => (
           <div key={`input-${id}`} className="boundary-port-row" style={{ top: getPortTop(index, data.inputs.length) }}>
