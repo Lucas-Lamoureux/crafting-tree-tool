@@ -658,9 +658,8 @@ export default function App() {
           isBlock: Boolean(nodesById[node.id]?.isBlock),
           isFrame: Boolean(nodesById[node.id]?.isFrame),
           frameTitle: nodesById[node.id]?.frameTitle,
-          frameContent: nodesById[node.id]?.frameContentId
-            ? { id: nodesById[node.id]?.frameContentId }
-            : null,
+          frameContents: (nodesById[node.id]?.frameContentIds ?? (nodesById[node.id]?.frameContentId ? [nodesById[node.id]?.frameContentId] : []))
+            .map((id) => ({ id })),
           width: nodesById[node.id]?.width,
           height: nodesById[node.id]?.height,
         },
@@ -678,7 +677,7 @@ export default function App() {
       draggable: true,
     }));
 
-    const frameContentIds = new Set(Object.values(nodesById).map((item) => item.frameContentId).filter(Boolean));
+    const frameContentIds = new Set(Object.values(nodesById).flatMap((item) => item.frameContentIds ?? (item.frameContentId ? [item.frameContentId] : [])));
     return [...treeNodes.filter((node) => !frameContentIds.has(node.id)), ...textBlockNodes];
   },
     [checkedIds, collapsedIds, directionByNode, manualPositions, nodesById, rootId, selectedIds, textBlocks, treeDirections],
@@ -1401,15 +1400,19 @@ export default function App() {
     const frame = nodesById[frameId];
     if (!tile || !frame?.isFrame || tileId === frameId) return;
 
-    const tileWidth = tile.width ?? Math.max(55, Math.ceil(tileId.length * 7.4 + 26));
-    const tileHeight = tile.height ?? 32;
+    const existingIds = frame.frameContentIds ?? (frame.frameContentId ? [frame.frameContentId] : []);
+    if (existingIds.includes(tileId)) return;
+    const contentIds = [...existingIds, tileId];
+    const contentTiles = contentIds.map((id) => nodesById[id]).filter(Boolean);
+    const contentWidth = contentTiles.reduce((total, item) => total + (item.width ?? Math.max(55, Math.ceil(item.id.length * 7.4 + 26))), 0) + Math.max(0, contentTiles.length - 1) * 10 + 20;
+    const contentHeight = Math.max(...contentTiles.map((item) => item.height ?? 32), 32) + 20;
     setNodesById((current) => ({
       ...current,
       [frameId]: {
         ...current[frameId],
-        frameContentId: tileId,
-        width: Math.max(current[frameId].width ?? 240, tileWidth + 20),
-        height: Math.max(current[frameId].height ?? 180, tileHeight * 10 + 20),
+        frameContentIds: contentIds,
+        width: Math.max(current[frameId].width ?? 240, contentWidth * 3),
+        height: Math.max(current[frameId].height ?? 180, Math.ceil(contentHeight / 0.9)),
       },
     }));
     setMessage(`Placed ${tileId} in the middle of ${frame.frameTitle || frameId}.`);

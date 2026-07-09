@@ -191,6 +191,11 @@ button:disabled {
   display: block;
   padding: 0;
   overflow: hidden;
+  z-index: 0;
+}
+
+.tree-node:not(.is-frame) {
+  z-index: 2;
 }
 
 .frame-layout {
@@ -231,6 +236,11 @@ button:disabled {
 }
 
 .frame-section-middle {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: center;
+  gap: 10px;
   padding: 10px;
 }
 
@@ -251,6 +261,7 @@ button:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  pointer-events: none;
 }
 
 .frame-section + .frame-section {

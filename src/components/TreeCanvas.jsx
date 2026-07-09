@@ -264,8 +264,11 @@ function TreeCanvasInner({
       const centerY = draggedRect
         ? draggedRect.top + draggedRect.height / 2
         : node.position.y + (node.measured?.height ?? node.height ?? 32) / 2;
-      const middleSection = document.elementsFromPoint(centerX, centerY)
-        .find((element) => element.classList?.contains('frame-section-middle'));
+      const middleSection = [...document.querySelectorAll('.frame-section-middle')]
+        .find((element) => {
+          const rect = element.getBoundingClientRect();
+          return centerX >= rect.left && centerX <= rect.right && centerY >= rect.top && centerY <= rect.bottom;
+        });
       const frameId = middleSection?.closest('.react-flow__node')?.getAttribute('data-id');
 
       if (frameId && frameId !== node.id) {

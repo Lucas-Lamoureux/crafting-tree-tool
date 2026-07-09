@@ -12,7 +12,7 @@ export function createNode(id, options = {}) {
     isBlock: Boolean(options.isBlock),
     isFrame: Boolean(options.isFrame),
     frameTitle: options.frameTitle,
-    frameContentId: options.frameContentId,
+    frameContentIds: options.frameContentIds ?? [],
     width: options.width,
     height: options.height,
   };
@@ -185,6 +185,7 @@ export function renameNode(nodesById, oldId, newId, rootId) {
           isBlock: Boolean(node.isBlock),
           isFrame: Boolean(node.isFrame),
           frameTitle: node.isFrame && node.frameTitle === oldId ? newId : node.frameTitle,
+          frameContentIds: (node.frameContentIds ?? (node.frameContentId ? [node.frameContentId] : [])).map((contentId) => contentId === oldId ? newId : contentId),
           width: node.width,
           height: node.height,
         };

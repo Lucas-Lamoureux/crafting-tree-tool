@@ -102,7 +102,9 @@ export default function TreeNode({ data, selected }) {
           <strong className="frame-title">{data.frameTitle || data.id}</strong>
           <div className="frame-section frame-section-left">Left</div>
           <div className="frame-section frame-section-middle">
-            {data.frameContent ? <span className="frame-tile">{data.frameContent.id}</span> : 'Middle'}
+            {data.frameContents?.length > 0
+              ? data.frameContents.map((tile) => <span className="frame-tile" key={tile.id}>{tile.id}</span>)
+              : 'Middle'}
           </div>
           <div className="frame-section frame-section-right">Right</div>
         </div>
