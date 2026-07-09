@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-export default function ContextMenu({ menu, node, onAction, onClose, onDescriptionChange }) {
+export default function ContextMenu({ menu, node, hasBoundary, onAction, onClose, onDescriptionChange }) {
   const [description, setDescription] = useState('');
 
   useEffect(() => {
@@ -47,6 +47,11 @@ export default function ContextMenu({ menu, node, onAction, onClose, onDescripti
           </div>
         </div>
         <button onClick={(event) => handleAction(event, 'auto-layout', onAction)}>Auto-layout tree</button>
+        {hasBoundary ? (
+          <button onClick={(event) => handleAction(event, 'remove-boundary', onAction)}>Remove Boundary</button>
+        ) : (
+          <button onClick={(event) => handleAction(event, 'add-boundary', onAction)}>Create Boundary</button>
+        )}
         <button onClick={(event) => handleAction(event, 'rename', onAction)}>Rename</button>
         <button className="danger" onClick={(event) => handleAction(event, 'delete', onAction)}>Delete</button>
       </div>

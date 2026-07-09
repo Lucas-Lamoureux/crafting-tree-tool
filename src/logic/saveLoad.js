@@ -37,6 +37,7 @@ export function serializeProject(project) {
       connectionSides: serializeConnectionSides(project.connectionSides, project.nodesById),
       checkedIds: [...(project.checkedIds ?? [])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
       collapsedIds: [...(project.collapsedIds ?? [])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
+      boundaries: serializeBoundaries(project.boundaries, project.nodesById),
       positions,
       textBlocks: Object.values(project.textBlocks ?? {})
         .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }))
@@ -135,6 +136,7 @@ export function parseProject(jsonText) {
   const textBlocks = {};
   const treeDirections = {};
   const connectionSides = {};
+  const boundaries = [];
 
   if (parsed.treeDirections && typeof parsed.treeDirections === 'object' && !Array.isArray(parsed.treeDirections)) {
     Object.entries(parsed.treeDirections).forEach(([rawId, direction]) => {
@@ -209,6 +211,20 @@ export function parseProject(jsonText) {
     });
   }
 
+  if (Array.isArray(parsed.boundaries)) {
+    parsed.boundaries.forEach((rawBoundary, index) => {
+      const rootId = normalizeId(rawBoundary?.rootId);
+
+      if (nodesById[rootId]) {
+        boundaries.push({
+          id: normalizeId(rawBoundary?.id) || `boundary-${index + 1}`,
+          rootId,
+          title: String(rawBoundary?.title ?? 'Boundary'),
+        });
+      }
+    });
+  }
+
   return {
     ok: true,
     project: {
@@ -220,8 +236,19 @@ export function parseProject(jsonText) {
       textBlocks,
       treeDirections,
       connectionSides,
+      boundaries,
     },
   };
+}
+
+function serializeBoundaries(boundaries = [], nodesById = {}) {
+  return boundaries
+    .filter((boundary) => nodesById[boundary.rootId])
+    .map((boundary, index) => ({
+      id: boundary.id ?? `boundary-${index + 1}`,
+      rootId: boundary.rootId,
+      title: boundary.title ?? 'Boundary',
+    }));
 }
 
 function serializeConnectionSides(connectionSides = {}, nodesById = {}) {

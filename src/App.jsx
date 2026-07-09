@@ -20,6 +20,7 @@ import {
   updateDescription,
 } from './logic/treeUtils.js';
 import { downloadJson, parseProject, serializeProject } from './logic/saveLoad.js';
+import { getConnectedTreeIds } from './logic/boundaries.js';
 
 function initialNodesById() {
   return Object.fromEntries(
@@ -226,6 +227,33 @@ function getUniqueImportId(rawId, usedIds) {
   return nextId;
 }
 
+function getUniqueBoundaryId(boundaries) {
+  const usedIds = new Set(boundaries.map((boundary) => boundary.id));
+  let index = boundaries.length + 1;
+  let id = `boundary-${index}`;
+
+  while (usedIds.has(id)) {
+    index += 1;
+    id = `boundary-${index}`;
+  }
+
+  return id;
+}
+
+function getBoundaryForNode(boundaries, nodesById, nodeId) {
+  return boundaries.find((boundary) => getConnectedTreeIds(nodesById, boundary.rootId).has(nodeId)) ?? null;
+}
+
+function remapBoundariesForImport(boundaries = [], nodeIdMap = {}) {
+  return boundaries
+    .filter((boundary) => nodeIdMap[boundary.rootId])
+    .map((boundary) => ({
+      ...boundary,
+      id: `import-${boundary.id}`,
+      rootId: nodeIdMap[boundary.rootId],
+    }));
+}
+
 function getNodePositionsForProject(project) {
   const laidOutNodes = layoutTree(
     project.nodesById,
@@ -270,8 +298,9 @@ function getCanvasBounds(flowNodes, nodesById, textBlocks) {
 }
 
 function remapProjectForImport(project, currentState) {
-  const { nodesById, textBlocks, flowNodes } = currentState;
+  const { nodesById, textBlocks, flowNodes, boundaries } = currentState;
   const usedIds = new Set([...Object.keys(nodesById), ...Object.keys(textBlocks)]);
+  const usedBoundaryIds = new Set((boundaries ?? []).map((boundary) => boundary.id));
   const nodeIdMap = {};
   const textIdMap = {};
   let renamedCount = 0;
@@ -319,6 +348,22 @@ function remapProjectForImport(project, currentState) {
       .map(([oldId, direction]) => [nodeIdMap[oldId], direction]),
   );
   const importedConnectionSides = {};
+  const importedBoundaries = remapBoundariesForImport(project.boundaries, nodeIdMap).map((boundary) => {
+    let nextId = boundary.id;
+    let index = 2;
+
+    while (usedBoundaryIds.has(nextId)) {
+      nextId = `${boundary.id}_${index}`;
+      index += 1;
+    }
+
+    usedBoundaryIds.add(nextId);
+
+    return {
+      ...boundary,
+      id: nextId,
+    };
+  });
 
   Object.entries(project.connectionSides ?? {}).forEach(([oldParentId, children]) => {
     const parentId = nodeIdMap[oldParentId];
@@ -408,6 +453,7 @@ function remapProjectForImport(project, currentState) {
     positions: importedPositions,
     treeDirections: importedTreeDirections,
     connectionSides: importedConnectionSides,
+    boundaries: importedBoundaries,
     renamedCount,
   };
 }
@@ -421,6 +467,7 @@ export default function App() {
   const [manualPositions, setManualPositions] = useState({});
   const [treeDirections, setTreeDirections] = useState({});
   const [connectionSides, setConnectionSides] = useState({});
+  const [boundaries, setBoundaries] = useState([]);
   const [selectedId, setSelectedId] = useState(initialTree.rootId);
   const [selectedIds, setSelectedIds] = useState(() => new Set([initialTree.rootId]));
   const [pendingIngredientParentId, setPendingIngredientParentId] = useState(null);
@@ -520,6 +567,10 @@ export default function App() {
     () => Object.values(nodesById).reduce((total, node) => total + node.ingredients.length, 0),
     [nodesById],
   );
+
+  useEffect(() => {
+    setBoundaries((current) => current.filter((boundary) => nodesById[boundary.rootId]));
+  }, [nodesById]);
 
   const setResult = useCallback((result, successMessage, options = {}) => {
     if (!result.ok) {
@@ -915,6 +966,39 @@ export default function App() {
       }
     }
 
+    if (action === 'add-boundary') {
+      setBoundaries((current) => {
+        const existingBoundary = getBoundaryForNode(current, nodesById, id);
+
+        if (existingBoundary) {
+          return current;
+        }
+
+        return [
+          ...current,
+          {
+            id: getUniqueBoundaryId(current),
+            rootId: id,
+            title: `${id} boundary`,
+          },
+        ];
+      });
+      setMessage(`Created a boundary around ${id}'s connected tree.`);
+    }
+
+    if (action === 'remove-boundary') {
+      setBoundaries((current) => {
+        const boundary = getBoundaryForNode(current, nodesById, id);
+
+        if (!boundary) {
+          return current;
+        }
+
+        return current.filter((item) => item.id !== boundary.id);
+      });
+      setMessage(`Removed ${id}'s connected tree boundary.`);
+    }
+
     if (action === 'rename') {
       const nextId = normalizeId(window.prompt(`Rename ${id} to:`, id));
       if (!nextId || nextId === id) return;
@@ -943,6 +1027,9 @@ export default function App() {
           const { [id]: oldDirection, ...rest } = current;
           return oldDirection ? { ...rest, [nextId]: oldDirection } : rest;
         });
+        setBoundaries((current) => current.map((boundary) => (
+          boundary.rootId === id ? { ...boundary, rootId: nextId, title: `${nextId} boundary` } : boundary
+        )));
         setConnectionSides((current) => renameConnectionSideNode(current, id, nextId));
         setCheckedIds((current) => {
           const next = new Set(current);
@@ -1244,12 +1331,13 @@ export default function App() {
         positions,
         treeDirections,
         connectionSides,
+        boundaries,
         textBlocks: textBlocksToSave,
       }),
     );
     setSaveModalOpen(false);
     setMessage(`Project saved as ${filename}.`);
-  }, [checkedIds, collapsedIds, connectionSides, flowNodes, nodesById, rootId, textBlocks, treeDirections]);
+  }, [boundaries, checkedIds, collapsedIds, connectionSides, flowNodes, nodesById, rootId, textBlocks, treeDirections]);
 
   const handleLoad = useCallback((event) => {
     const file = event.target.files?.[0];
@@ -1273,6 +1361,7 @@ export default function App() {
       setManualPositions(result.project.positions ?? {});
       setTreeDirections(result.project.treeDirections ?? {});
       setConnectionSides(result.project.connectionSides ?? {});
+      setBoundaries(result.project.boundaries ?? []);
       setMessage(`Loaded ${file.name}.`);
     });
 
@@ -1295,6 +1384,7 @@ export default function App() {
         nodesById,
         textBlocks,
         flowNodes,
+        boundaries,
       });
 
       setNodesById((current) => ({
@@ -1320,6 +1410,10 @@ export default function App() {
         ...current,
         ...imported.connectionSides,
       }));
+      setBoundaries((current) => [
+        ...current,
+        ...imported.boundaries,
+      ]);
       setSelectedId(imported.rootId);
       setSelectedIds(new Set(imported.rootId ? [imported.rootId] : []));
       setMessage(
@@ -1328,7 +1422,7 @@ export default function App() {
     });
 
     event.target.value = '';
-  }, [flowNodes, nodesById, textBlocks]);
+  }, [boundaries, flowNodes, nodesById, textBlocks]);
 
   const toggleCollapse = useCallback((id) => {
     setCollapsedIds((current) => {
@@ -1364,6 +1458,7 @@ export default function App() {
           nodesById={nodesById}
           rootId={rootId}
           connectionSides={connectionSides}
+          boundaries={boundaries}
           collapsedIds={collapsedIds}
           selectedId={selectedId}
           selectedIds={selectedIds}

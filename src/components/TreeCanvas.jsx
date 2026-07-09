@@ -9,13 +9,23 @@ import {
 } from '@xyflow/react';
 import TreeNode from './TreeNode.jsx';
 import TextBlockNode from './TextBlockNode.jsx';
+import BoundaryNode from './BoundaryNode.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { deriveEdges, getDescendants } from '../logic/treeUtils.js';
+import { getBoundaryRole, getConnectedTreeIds, getTreeIO } from '../logic/boundaries.js';
 
 const nodeTypes = {
+  boundary: BoundaryNode,
   treeNode: TreeNode,
   textBlock: TextBlockNode,
 };
+
+const DEFAULT_TILE_WIDTH = 55;
+const DEFAULT_TILE_HEIGHT = 32;
+const TILE_LABEL_PADDING = 26;
+const AVERAGE_CHARACTER_WIDTH = 7.4;
+const BOUNDARY_PADDING = 18;
+const BOUNDARY_HEADER_HEIGHT = 54;
 
 function TreeCanvasInner({
   flowNodes,
@@ -23,6 +33,7 @@ function TreeCanvasInner({
   collapsedIds,
   rootId,
   connectionSides,
+  boundaries,
   selectedId,
   selectedIds,
   contextMenu,
@@ -119,6 +130,20 @@ function TreeCanvasInner({
     [nodesById, collapsedIds, rootId, connectionSides],
   );
 
+  const boundaryRoles = useMemo(() => {
+    const roles = {};
+
+    (boundaries ?? []).forEach((boundary) => {
+      const ids = getConnectedTreeIds(nodesById, boundary.rootId);
+
+      ids.forEach((id) => {
+        roles[id] ??= getBoundaryRole(nodesById, ids, id);
+      });
+    });
+
+    return roles;
+  }, [boundaries, nodesById]);
+
   const decoratedNodes = useMemo(
     () => flowNodes.map((node) => ({
       ...node,
@@ -127,13 +152,14 @@ function TreeCanvasInner({
         ...node.data,
         onToggleChecked,
         onUpdate: onUpdateTextBlock,
+        boundaryRole: node.type === 'treeNode' ? boundaryRoles[node.id] : null,
         isIngredientPickerParent: node.id === pendingIngredientParentId,
         isIngredientPickerTarget: Boolean(
           pendingIngredientParentId && node.type === 'treeNode' && node.id !== pendingIngredientParentId,
         ),
       },
     })),
-    [flowNodes, onToggleChecked, onUpdateTextBlock, pendingIngredientParentId, selectedIds],
+    [boundaryRoles, flowNodes, onToggleChecked, onUpdateTextBlock, pendingIngredientParentId, selectedIds],
   );
 
   const [localNodes, setLocalNodes] = useState(decoratedNodes);
@@ -143,6 +169,11 @@ function TreeCanvasInner({
       setLocalNodes(decoratedNodes);
     }
   }, [decoratedNodes]);
+
+  const boundaryNodes = useMemo(
+    () => getBoundaryNodes(boundaries, localNodes, nodesById),
+    [boundaries, localNodes, nodesById],
+  );
 
   const handleNodeContextMenu = useCallback((event, node) => {
     event.preventDefault();
@@ -335,7 +366,7 @@ function TreeCanvasInner({
       onPointerDownCapture={handleCanvasConnectorStart}
     >
       <ReactFlow
-        nodes={localNodes}
+        nodes={[...boundaryNodes, ...localNodes]}
         edges={edges}
         nodeTypes={nodeTypes}
         minZoom={0.25}
@@ -373,6 +404,9 @@ function TreeCanvasInner({
       <ContextMenu
         menu={contextMenu}
         node={contextMenu ? nodesById[contextMenu.id] : null}
+        hasBoundary={Boolean(
+          contextMenu && (boundaries ?? []).some((boundary) => getConnectedTreeIds(nodesById, boundary.rootId).has(contextMenu.id)),
+        )}
         onAction={onContextAction}
         onClose={onCloseContext}
         onDescriptionChange={onDescriptionChange}
@@ -385,6 +419,91 @@ function parseHandleSide(handleId) {
   const side = String(handleId ?? '').replace(/^source-/, '').replace(/^target-/, '');
 
   return ['right', 'left', 'down', 'up'].includes(side) ? side : null;
+}
+
+function getBoundaryNodes(boundaries = [], localNodes, nodesById) {
+  const positionById = Object.fromEntries(
+    localNodes
+      .filter((node) => node.type === 'treeNode')
+      .map((node) => [node.id, node.position]),
+  );
+
+  return boundaries
+    .map((boundary) => {
+      const ids = getConnectedTreeIds(nodesById, boundary.rootId);
+      const visibleIds = [...ids].filter((id) => positionById[id]);
+
+      if (visibleIds.length === 0) {
+        return null;
+      }
+
+      const bounds = visibleIds.reduce((current, id) => {
+        const position = positionById[id];
+        const width = getNodeWidth(nodesById, id);
+        const height = getNodeHeight(nodesById, id);
+
+        return {
+          minX: Math.min(current.minX, position.x),
+          minY: Math.min(current.minY, position.y),
+          maxX: Math.max(current.maxX, position.x + width),
+          maxY: Math.max(current.maxY, position.y + height),
+        };
+      }, {
+        minX: Infinity,
+        minY: Infinity,
+        maxX: -Infinity,
+        maxY: -Infinity,
+      });
+      const { inputs, outputs } = getTreeIO(nodesById, ids);
+
+      return {
+        id: `boundary-${boundary.id}`,
+        type: 'boundary',
+        position: {
+          x: bounds.minX - BOUNDARY_PADDING,
+          y: bounds.minY - BOUNDARY_HEADER_HEIGHT - BOUNDARY_PADDING,
+        },
+        data: {
+          title: boundary.title ?? 'Boundary',
+          inputs,
+          outputs,
+        },
+        style: {
+          width: bounds.maxX - bounds.minX + BOUNDARY_PADDING * 2,
+          height: bounds.maxY - bounds.minY + BOUNDARY_PADDING * 2 + BOUNDARY_HEADER_HEIGHT,
+        },
+        draggable: false,
+        selectable: false,
+        connectable: false,
+        deletable: false,
+        focusable: false,
+        zIndex: 0,
+      };
+    })
+    .filter(Boolean);
+}
+
+function getNodeWidth(nodesById, id) {
+  const node = nodesById[id];
+
+  if (Number.isFinite(node?.width)) {
+    return node.width;
+  }
+
+  return Math.max(
+    DEFAULT_TILE_WIDTH,
+    Math.ceil(String(id).length * AVERAGE_CHARACTER_WIDTH + TILE_LABEL_PADDING),
+  );
+}
+
+function getNodeHeight(nodesById, id) {
+  const node = nodesById[id];
+
+  if (Number.isFinite(node?.height)) {
+    return node.height;
+  }
+
+  return DEFAULT_TILE_HEIGHT;
 }
 
 export default function TreeCanvas(props) {

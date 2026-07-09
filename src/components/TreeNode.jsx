@@ -100,6 +100,9 @@ export default function TreeNode({ data, selected }) {
       {data.ingredientCount > 0 && (
         <span className="node-badge">{data.collapsed ? '+' : data.ingredientCount}</span>
       )}
+      {data.boundaryRole && (
+        <span className="node-io-marker">{data.boundaryRole}</span>
+      )}
       {data.isBlock ? (
         blockSides.map(({ side, position, className }) => (
           <Handle
