@@ -12,7 +12,7 @@ import TextBlockNode from './TextBlockNode.jsx';
 import BoundaryNode from './BoundaryNode.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { deriveEdges, getDescendants } from '../logic/treeUtils.js';
-import { getBoundaryRole, getConnectedTreeIds, getTreeIO } from '../logic/boundaries.js';
+import { getBoundaryRole, getConnectedTreeIds } from '../logic/boundaries.js';
 
 const nodeTypes = {
   boundary: BoundaryNode,
@@ -24,10 +24,8 @@ const DEFAULT_TILE_WIDTH = 55;
 const DEFAULT_TILE_HEIGHT = 32;
 const TILE_LABEL_PADDING = 26;
 const AVERAGE_CHARACTER_WIDTH = 7.4;
-const BOUNDARY_PADDING = 18;
-const BOUNDARY_HEADER_HEIGHT = 44;
-const EMPTY_BOUNDARY_WIDTH = 260;
-const EMPTY_BOUNDARY_HEIGHT = 132;
+const EMPTY_BOUNDARY_WIDTH = 150;
+const EMPTY_BOUNDARY_HEIGHT = 58;
 
 function TreeCanvasInner({
   flowNodes,
@@ -296,16 +294,6 @@ function TreeCanvasInner({
       return;
     }
 
-    if (node.type === 'treeNode') {
-      const targetBoundary = findBoundaryDropTarget(node, boundaryNodes, nodesById);
-
-      if (targetBoundary) {
-        onAssignBoundary(targetBoundary.data.boundaryId, node.id);
-        dragStateRef.current = null;
-        return;
-      }
-    }
-
     if (dragState.selectedGroup) {
       onMoveNodes(dragState.idsToMove, delta);
     } else {
@@ -316,7 +304,7 @@ function TreeCanvasInner({
       );
     }
     dragStateRef.current = null;
-  }, [boundaryNodes, nodesById, onAssignBoundary, onMoveBoundary, onMoveNodes, onMoveSubtree]);
+  }, [onMoveBoundary, onMoveNodes, onMoveSubtree]);
 
   const handleNodeClick = useCallback((event, node) => {
     if (node.type === 'boundary') {
@@ -502,113 +490,27 @@ function deriveBoundaryEdges(boundaryLinks = [], boundaries = []) {
     }));
 }
 
-function getBoundaryNodes(boundaries = [], localNodes, nodesById) {
-  const positionById = Object.fromEntries(
-    localNodes
-      .filter((node) => node.type === 'treeNode')
-      .map((node) => [node.id, node.position]),
-  );
-
-  return boundaries
-    .map((boundary) => {
-      const ids = getConnectedTreeIds(nodesById, boundary.rootId);
-      const visibleIds = [...ids].filter((id) => positionById[id]);
-
-      if (visibleIds.length === 0) {
-        return {
-          id: `boundary-${boundary.id}`,
-          type: 'boundary',
-          position: boundary.position ?? { x: 120, y: 120 },
-          data: {
-            boundaryId: boundary.id,
-            rootId: null,
-            title: boundary.title ?? 'Boundary',
-            inputs: [],
-            outputs: [],
-          },
-          style: {
-            width: boundary.width ?? EMPTY_BOUNDARY_WIDTH,
-            height: boundary.height ?? EMPTY_BOUNDARY_HEIGHT,
-          },
-          draggable: true,
-          selectable: false,
-          connectable: true,
-          deletable: false,
-          focusable: false,
-          dragHandle: '.boundary-drag-handle',
-          zIndex: 70,
-        };
-      }
-
-      const bounds = visibleIds.reduce((current, id) => {
-        const position = positionById[id];
-        const width = getNodeWidth(nodesById, id);
-        const height = getNodeHeight(nodesById, id);
-
-        return {
-          minX: Math.min(current.minX, position.x),
-          minY: Math.min(current.minY, position.y),
-          maxX: Math.max(current.maxX, position.x + width),
-          maxY: Math.max(current.maxY, position.y + height),
-        };
-      }, {
-        minX: Infinity,
-        minY: Infinity,
-        maxX: -Infinity,
-        maxY: -Infinity,
-      });
-      const { inputs, outputs } = getTreeIO(nodesById, ids);
-
-      return {
-        id: `boundary-${boundary.id}`,
-        type: 'boundary',
-        position: {
-          x: bounds.minX - BOUNDARY_PADDING,
-          y: bounds.minY - BOUNDARY_HEADER_HEIGHT - BOUNDARY_PADDING,
-        },
-        data: {
-          boundaryId: boundary.id,
-          rootId: boundary.rootId,
-          title: boundary.title ?? 'Boundary',
-          inputs,
-          outputs,
-        },
-        style: {
-          width: Math.max(
-            boundary.width ?? EMPTY_BOUNDARY_WIDTH,
-            bounds.maxX - bounds.minX + BOUNDARY_PADDING * 2,
-          ),
-          height: Math.max(
-            boundary.height ?? EMPTY_BOUNDARY_HEIGHT,
-            bounds.maxY - bounds.minY + BOUNDARY_PADDING * 2 + BOUNDARY_HEADER_HEIGHT,
-          ),
-        },
-        draggable: true,
-        selectable: false,
-        connectable: true,
-        deletable: false,
-          focusable: false,
-          dragHandle: '.boundary-drag-handle',
-          zIndex: 20,
-      };
-    })
-    .filter(Boolean);
-}
-
-function findBoundaryDropTarget(node, boundaryNodes, nodesById) {
-  const nodeWidth = getNodeWidth(nodesById, node.id);
-  const nodeHeight = getNodeHeight(nodesById, node.id);
-  const nodeCenter = {
-    x: node.position.x + nodeWidth / 2,
-    y: node.position.y + nodeHeight / 2,
-  };
-
-  return boundaryNodes.find((boundaryNode) => (
-    nodeCenter.x >= boundaryNode.position.x
-    && nodeCenter.x <= boundaryNode.position.x + Number(boundaryNode.style?.width ?? 0)
-    && nodeCenter.y >= boundaryNode.position.y
-    && nodeCenter.y <= boundaryNode.position.y + Number(boundaryNode.style?.height ?? 0)
-  ));
+function getBoundaryNodes(boundaries = []) {
+  return boundaries.map((boundary) => ({
+    id: `boundary-${boundary.id}`,
+    type: 'boundary',
+    position: boundary.position ?? { x: 120, y: 120 },
+    data: {
+      boundaryId: boundary.id,
+      title: boundary.title ?? 'Boundary',
+    },
+    style: {
+      width: boundary.width ?? EMPTY_BOUNDARY_WIDTH,
+      height: boundary.height ?? EMPTY_BOUNDARY_HEIGHT,
+    },
+    draggable: true,
+    selectable: false,
+    connectable: false,
+    deletable: false,
+    focusable: false,
+    dragHandle: '.boundary-drag-handle',
+    zIndex: 80,
+  }));
 }
 
 function getNodeWidth(nodesById, id) {

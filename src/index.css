@@ -322,7 +322,7 @@ button:disabled {
 
 .react-flow__node-boundary {
   pointer-events: auto;
-  z-index: 20;
+  z-index: 80;
 }
 
 .react-flow__node-treeNode,
@@ -332,103 +332,42 @@ button:disabled {
 
 .tree-boundary {
   position: relative;
+  display: grid;
+  place-items: center;
+  gap: 2px;
   width: 100%;
   height: 100%;
   border: 2px solid #79c7a0;
-  border-radius: 7px;
+  border-radius: 5px;
   background: #252f2d;
-  box-shadow: 0 0 0 3px rgba(121, 199, 160, 0.28), 0 10px 22px rgba(5, 11, 10, 0.34);
-  color: #f6ead0;
+  box-shadow: 0 0 0 3px rgba(121, 199, 160, 0.3), 0 5px 12px rgba(5, 11, 10, 0.28);
+  color: #f2f7f4;
   overflow: visible;
-  pointer-events: none;
-}
-
-.tree-boundary-label {
-  position: absolute;
-  left: 12px;
-  top: -13px;
-  z-index: 2;
-  padding: 2px 7px;
-  border: 1px solid #79c7a0;
-  border-radius: 999px;
-  background: #252f2d;
-  color: #dff8ea;
-  font-size: 10px;
-  font-weight: 900;
-  line-height: 1;
-  text-transform: uppercase;
-}
-
-.tree-boundary-title {
-  display: grid;
-  place-items: center;
-  min-height: 42px;
-  padding: 8px 12px;
-  border-bottom: 1px solid rgba(121, 199, 160, 0.65);
-  background: #2e4a40;
-  color: #dff8ea;
-  font-size: 13px;
-  font-weight: 900;
-  line-height: 1.1;
-  cursor: grab;
   pointer-events: auto;
+  cursor: grab;
   user-select: none;
 }
 
-.tree-boundary-title:active {
+.tree-boundary:active {
   cursor: grabbing;
 }
 
-.tree-boundary-title strong {
-  min-width: 0;
+.tree-boundary strong {
+  max-width: calc(100% - 14px);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.tree-boundary-sections {
-  display: grid;
-  grid-template-columns: minmax(60px, 0.65fr) minmax(92px, 1.5fr) minmax(60px, 0.65fr);
-  height: calc(100% - 42px);
-  min-height: 86px;
-}
-
-.tree-boundary-section {
-  display: grid;
-  align-content: start;
-  gap: 8px;
-  min-width: 0;
-  padding: 9px;
-  border-right: 1px solid rgba(121, 199, 160, 0.42);
-  pointer-events: none;
-}
-
-.tree-boundary-section:last-child {
-  border-right: 0;
-}
-
-.tree-boundary-section span {
-  color: #79c7a0;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 900;
-  text-transform: uppercase;
+  line-height: 1;
 }
 
-.tree-boundary-section strong {
-  min-width: 0;
-  color: #f2f7f4;
-  font-size: 11px;
+.tree-boundary span {
+  color: #79c7a0;
+  font-size: 9px;
   font-weight: 800;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.tree-boundary-section-house {
-  background: rgba(37, 47, 45, 0.24);
-}
-
-.tree-boundary-section-side {
-  background: rgba(18, 29, 26, 0.26);
+  line-height: 1.1;
+  text-transform: uppercase;
 }
 
 .boundary-side {

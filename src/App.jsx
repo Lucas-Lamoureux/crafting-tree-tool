@@ -95,8 +95,8 @@ const TIER_GAP = 50;
 const SIDE_ROOT_GAP = 4;
 const TILE_LABEL_PADDING = 26;
 const AVERAGE_CHARACTER_WIDTH = 7.4;
-const EMPTY_BOUNDARY_WIDTH = 260;
-const EMPTY_BOUNDARY_HEIGHT = 132;
+const EMPTY_BOUNDARY_WIDTH = 150;
+const EMPTY_BOUNDARY_HEIGHT = 58;
 const BOUNDARY_TITLE_HEIGHT = 44;
 const BOUNDARY_SECTION_GAP = 16;
 
@@ -1277,13 +1277,8 @@ export default function App() {
   }, []);
 
   const handleAddBoundary = useCallback(() => {
-    const title = normalizeId(window.prompt('Boundary title:', 'Boundary'));
-
-    if (!title) {
-      return;
-    }
-
     const position = getNewBoundaryPosition(flowNodes, selectedId, boundaries);
+    const title = `Boundary ${boundaries.length + 1}`;
 
     setBoundaries((current) => [
       ...current,
