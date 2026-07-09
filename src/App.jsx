@@ -206,6 +206,212 @@ function getBlockSideAnchors(blockId, childSides, flowNodes, nodesById) {
   return anchors;
 }
 
+function getUniqueImportId(rawId, usedIds) {
+  const baseId = normalizeId(rawId) || 'imported';
+
+  if (!usedIds.has(baseId)) {
+    usedIds.add(baseId);
+    return baseId;
+  }
+
+  let index = 2;
+  let nextId = `${baseId}_${index}`;
+
+  while (usedIds.has(nextId)) {
+    index += 1;
+    nextId = `${baseId}_${index}`;
+  }
+
+  usedIds.add(nextId);
+  return nextId;
+}
+
+function getNodePositionsForProject(project) {
+  const laidOutNodes = layoutTree(
+    project.nodesById,
+    project.rootId,
+    new Set(project.collapsedIds ?? []),
+    project.positions ?? {},
+    project.treeDirections?.[project.rootId] ?? 'right',
+  );
+
+  return Object.fromEntries(laidOutNodes.map((node) => [node.id, node.position]));
+}
+
+function getPositionBounds(entries) {
+  if (entries.length === 0) {
+    return null;
+  }
+
+  return entries.reduce((bounds, entry) => ({
+    minX: Math.min(bounds.minX, entry.x),
+    minY: Math.min(bounds.minY, entry.y),
+    maxX: Math.max(bounds.maxX, entry.x + entry.width),
+    maxY: Math.max(bounds.maxY, entry.y + entry.height),
+  }), {
+    minX: entries[0].x,
+    minY: entries[0].y,
+    maxX: entries[0].x + entries[0].width,
+    maxY: entries[0].y + entries[0].height,
+  });
+}
+
+function getCanvasBounds(flowNodes, nodesById, textBlocks) {
+  return getPositionBounds(flowNodes.map((node) => {
+    const textBlock = textBlocks[node.id];
+
+    return {
+      x: node.position.x,
+      y: node.position.y,
+      width: textBlock?.width ?? getNodeWidth(nodesById, node.id),
+      height: textBlock?.height ?? getNodeHeight(nodesById, node.id),
+    };
+  }));
+}
+
+function remapProjectForImport(project, currentState) {
+  const { nodesById, textBlocks, flowNodes } = currentState;
+  const usedIds = new Set([...Object.keys(nodesById), ...Object.keys(textBlocks)]);
+  const nodeIdMap = {};
+  const textIdMap = {};
+  let renamedCount = 0;
+
+  Object.keys(project.nodesById).forEach((oldId) => {
+    const newId = getUniqueImportId(oldId, usedIds);
+    nodeIdMap[oldId] = newId;
+
+    if (newId !== oldId) {
+      renamedCount += 1;
+    }
+  });
+
+  Object.keys(project.textBlocks ?? {}).forEach((oldId) => {
+    const newId = getUniqueImportId(oldId, usedIds);
+    textIdMap[oldId] = newId;
+
+    if (newId !== oldId) {
+      renamedCount += 1;
+    }
+  });
+
+  const importedNodesById = Object.fromEntries(
+    Object.entries(project.nodesById).map(([oldId, node]) => [
+      nodeIdMap[oldId],
+      {
+        ...node,
+        id: nodeIdMap[oldId],
+        ingredients: node.ingredients.map((ingredientId) => nodeIdMap[ingredientId]).filter(Boolean),
+      },
+    ]),
+  );
+  const importedTextBlocks = Object.fromEntries(
+    Object.entries(project.textBlocks ?? {}).map(([oldId, block]) => [
+      textIdMap[oldId],
+      {
+        ...block,
+        id: textIdMap[oldId],
+      },
+    ]),
+  );
+  const importedTreeDirections = Object.fromEntries(
+    Object.entries(project.treeDirections ?? {})
+      .filter(([oldId]) => nodeIdMap[oldId])
+      .map(([oldId, direction]) => [nodeIdMap[oldId], direction]),
+  );
+  const importedConnectionSides = {};
+
+  Object.entries(project.connectionSides ?? {}).forEach(([oldParentId, children]) => {
+    const parentId = nodeIdMap[oldParentId];
+
+    if (!parentId) {
+      return;
+    }
+
+    Object.entries(children ?? {}).forEach(([oldChildId, side]) => {
+      const childId = nodeIdMap[oldChildId];
+
+      if (childId) {
+        importedConnectionSides[parentId] ??= {};
+        importedConnectionSides[parentId][childId] = side;
+      }
+    });
+  });
+
+  const baseProjectPositions = getNodePositionsForProject({
+    ...project,
+    nodesById: importedNodesById,
+    rootId: nodeIdMap[project.rootId] ?? Object.keys(importedNodesById)[0] ?? null,
+    collapsedIds: (project.collapsedIds ?? []).map((id) => nodeIdMap[id]).filter(Boolean),
+    positions: Object.fromEntries(
+      Object.entries(project.positions ?? {})
+        .filter(([oldId]) => nodeIdMap[oldId])
+        .map(([oldId, position]) => [nodeIdMap[oldId], position]),
+    ),
+    treeDirections: importedTreeDirections,
+  });
+  const baseTextPositions = Object.fromEntries(
+    Object.values(importedTextBlocks).map((block) => [block.id, block.position ?? { x: 40, y: 40 }]),
+  );
+  const currentBounds = getCanvasBounds(flowNodes, nodesById, textBlocks);
+  const importedBounds = getPositionBounds([
+    ...Object.entries(baseProjectPositions).map(([id, position]) => ({
+      x: position.x,
+      y: position.y,
+      width: getNodeWidth(importedNodesById, id),
+      height: getNodeHeight(importedNodesById, id),
+    })),
+    ...Object.values(importedTextBlocks).map((block) => ({
+      x: baseTextPositions[block.id]?.x ?? 40,
+      y: baseTextPositions[block.id]?.y ?? 40,
+      width: block.width,
+      height: block.height,
+    })),
+  ]);
+  const offset = currentBounds && importedBounds
+    ? {
+      x: currentBounds.maxX + 160 - importedBounds.minX,
+      y: currentBounds.minY - importedBounds.minY,
+    }
+    : { x: 0, y: 0 };
+  const importedPositions = Object.fromEntries(
+    Object.entries(baseProjectPositions).map(([id, position]) => [
+      id,
+      {
+        x: position.x + offset.x,
+        y: position.y + offset.y,
+      },
+    ]),
+  );
+  const positionedTextBlocks = Object.fromEntries(
+    Object.entries(importedTextBlocks).map(([id, block]) => {
+      const position = baseTextPositions[id] ?? { x: 40, y: 40 };
+
+      return [
+        id,
+        {
+          ...block,
+          position: {
+            x: position.x + offset.x,
+            y: position.y + offset.y,
+          },
+        },
+      ];
+    }),
+  );
+
+  return {
+    nodesById: importedNodesById,
+    textBlocks: positionedTextBlocks,
+    rootId: nodeIdMap[project.rootId] ?? Object.keys(importedNodesById)[0] ?? null,
+    checkedIds: (project.checkedIds ?? []).map((id) => nodeIdMap[id]).filter(Boolean),
+    collapsedIds: (project.collapsedIds ?? []).map((id) => nodeIdMap[id]).filter(Boolean),
+    positions: importedPositions,
+    treeDirections: importedTreeDirections,
+    connectionSides: importedConnectionSides,
+    renamedCount,
+  };
+}
+
 export default function App() {
   const [nodesById, setNodesById] = useState(initialNodesById);
   const [textBlocks, setTextBlocks] = useState({});
@@ -226,6 +432,7 @@ export default function App() {
   const [message, setMessage] = useState('Ready');
   const flowRef = useRef(null);
   const fileInputRef = useRef(null);
+  const importInputRef = useRef(null);
 
   const directionByNode = useMemo(() => {
     const next = {};
@@ -1072,6 +1279,57 @@ export default function App() {
     event.target.value = '';
   }, []);
 
+  const handleImport = useCallback((event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    file.text().then((text) => {
+      const result = parseProject(text);
+
+      if (!result.ok) {
+        setMessage(result.message);
+        return;
+      }
+
+      const imported = remapProjectForImport(result.project, {
+        nodesById,
+        textBlocks,
+        flowNodes,
+      });
+
+      setNodesById((current) => ({
+        ...current,
+        ...imported.nodesById,
+      }));
+      setTextBlocks((current) => ({
+        ...current,
+        ...imported.textBlocks,
+      }));
+      setRootId((current) => current ?? imported.rootId);
+      setCheckedIds((current) => new Set([...current, ...imported.checkedIds]));
+      setCollapsedIds((current) => new Set([...current, ...imported.collapsedIds]));
+      setManualPositions((current) => ({
+        ...current,
+        ...imported.positions,
+      }));
+      setTreeDirections((current) => ({
+        ...current,
+        ...imported.treeDirections,
+      }));
+      setConnectionSides((current) => ({
+        ...current,
+        ...imported.connectionSides,
+      }));
+      setSelectedId(imported.rootId);
+      setSelectedIds(new Set(imported.rootId ? [imported.rootId] : []));
+      setMessage(
+        `Imported ${file.name}.${imported.renamedCount > 0 ? ` Renamed ${imported.renamedCount} duplicate ID${imported.renamedCount === 1 ? '' : 's'}.` : ''}`,
+      );
+    });
+
+    event.target.value = '';
+  }, [flowNodes, nodesById, textBlocks]);
+
   const toggleCollapse = useCallback((id) => {
     setCollapsedIds((current) => {
       const next = new Set(current);
@@ -1092,10 +1350,12 @@ export default function App() {
         onSearch={handleSearch}
         onSave={handleSave}
         onLoad={handleLoad}
+        onImport={handleImport}
         onAddNode={handleAddNode}
         onAddBlock={handleAddBlock}
         onFit={() => flowRef.current?.fitView({ padding: 0.25, duration: 350 })}
         fileInputRef={fileInputRef}
+        importInputRef={importInputRef}
       />
 
       <div className="workspace">

@@ -6,10 +6,12 @@ export default function Toolbar({
   onSearch,
   onSave,
   onLoad,
+  onImport,
   onAddNode,
   onAddBlock,
   onFit,
   fileInputRef,
+  importInputRef,
 }) {
   return (
     <header className="toolbar">
@@ -29,7 +31,9 @@ export default function Toolbar({
         <button onClick={onFit}>Fit</button>
         <button onClick={onSave}>Save JSON</button>
         <button onClick={() => fileInputRef.current?.click()}>Load JSON</button>
+        <button onClick={() => importInputRef.current?.click()}>Import JSON</button>
         <input ref={fileInputRef} className="hidden-input" type="file" accept="application/json,.json" onChange={onLoad} />
+        <input ref={importInputRef} className="hidden-input" type="file" accept="application/json,.json" onChange={onImport} />
       </div>
     </header>
   );
