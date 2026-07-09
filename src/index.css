@@ -84,10 +84,27 @@ button:disabled {
 }
 
 .brand h1 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
   margin: 0;
   font-size: 18px;
   line-height: 1.2;
   letter-spacing: 0;
+}
+
+.edit-version {
+  display: inline-grid;
+  place-items: center;
+  min-width: 26px;
+  height: 18px;
+  padding: 0 6px;
+  border: 1px solid #79c7a0;
+  border-radius: 999px;
+  color: #79c7a0;
+  font-size: 11px;
+  font-weight: 900;
 }
 
 .brand p {

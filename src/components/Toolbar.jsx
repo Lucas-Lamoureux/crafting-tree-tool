@@ -1,5 +1,7 @@
 import SearchBar from './SearchBar.jsx';
 
+const EDIT_VERSION = 19;
+
 export default function Toolbar({
   nodeCount,
   edgeCount,
@@ -18,7 +20,10 @@ export default function Toolbar({
       <div className="brand">
         <span className="brand-mark">D</span>
         <div>
-          <h1>Dependency Tree Explorer</h1>
+          <h1>
+            Dependency Tree Explorer
+            <span className="edit-version">#{EDIT_VERSION}</span>
+          </h1>
           <p>{nodeCount} IDs · {edgeCount} links</p>
         </div>
       </div>
