@@ -540,7 +540,7 @@ function getBoundaryNodes(boundaries = [], localNodes, nodesById) {
         deletable: false,
         focusable: false,
         dragHandle: '.boundary-drag-handle',
-        zIndex: 0,
+        zIndex: 20,
       };
     })
     .filter(Boolean);

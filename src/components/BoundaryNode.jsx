@@ -3,6 +3,7 @@ import { Handle, Position } from '@xyflow/react';
 export default function BoundaryNode({ data }) {
   return (
     <section className="tree-boundary">
+      <div className="tree-boundary-label">Boundary</div>
       <header className="tree-boundary-header boundary-drag-handle">
         <strong>{data.title}</strong>
         <span>Inputs: {formatList(data.inputs)}</span>
