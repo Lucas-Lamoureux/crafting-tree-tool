@@ -8,6 +8,8 @@ export default function PropertyPanel({
   onSetRoot,
   onToggleCollapse,
   collapsedIds,
+  dataEnabled,
+  onUpdateData,
 }) {
   const selected = selectedId ? nodesById[selectedId] : null;
   const parents = selected ? getParents(nodesById, selected.id) : [];
@@ -42,6 +44,31 @@ export default function PropertyPanel({
           <p className="muted">Select or right-click a node.</p>
         )}
       </section>
+
+      {dataEnabled && selected && (
+        <section>
+          <h2>Data</h2>
+          <div className="tile-data-panel">
+            <div className="tile-data-id">{selected.id}</div>
+            {(selected.dataRows ?? []).map((value, index) => (
+              <input
+                key={`${selected.id}-data-${index}`}
+                type="text"
+                value={value}
+                placeholder="Enter a value"
+                onChange={(event) => {
+                  const nextRows = [...(selected.dataRows ?? [])];
+                  nextRows[index] = event.target.value;
+                  onUpdateData(selected.id, nextRows);
+                }}
+              />
+            ))}
+            <button onClick={() => onUpdateData(selected.id, [...(selected.dataRows ?? []), ''])}>
+              Add Row
+            </button>
+          </div>
+        </section>
+      )}
 
       <section>
         <h2>All IDs</h2>

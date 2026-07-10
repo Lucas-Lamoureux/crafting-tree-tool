@@ -136,6 +136,89 @@ button:disabled {
   flex-wrap: wrap;
 }
 
+.add-menu {
+  position: relative;
+}
+
+.add-menu summary {
+  display: grid;
+  place-items: center;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid #3c4d49;
+  border-radius: 6px;
+  background: #24302e;
+  color: #e7eee9;
+  cursor: pointer;
+  list-style: none;
+}
+
+.add-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.add-menu summary::after {
+  content: '\25BE';
+  margin-left: 7px;
+  color: #9ab0a8;
+  font-size: 10px;
+}
+
+.add-menu[open] summary,
+.add-menu summary:hover {
+  border-color: #6fa893;
+  background: #2c3a37;
+}
+
+.add-menu-options {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  z-index: 90;
+  display: grid;
+  min-width: 120px;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid #3c4d49;
+  border-radius: 6px;
+  background: #202b29;
+  box-shadow: 0 10px 24px rgba(5, 11, 10, 0.36);
+}
+
+.add-menu-options button {
+  width: 100%;
+  text-align: left;
+}
+
+.toggle-button.is-active {
+  border-color: #79c7a0;
+  background: #315444;
+  color: #effff5;
+}
+
+.tile-data-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.tile-data-id {
+  color: #79c7a0;
+  font-size: 12px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.tile-data-panel input {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  border: 1px solid #3c4d49;
+  border-radius: 6px;
+  padding: 0 10px;
+  background: #1f2927;
+  color: #e7eee9;
+}
+
 .hidden-input {
   display: none;
 }
@@ -240,7 +323,7 @@ button:disabled {
 .frame-section-middle {
   grid-column: 1;
   position: relative;
-  padding: 10px;
+  padding: 20px;
 }
 
 .frame-network {
