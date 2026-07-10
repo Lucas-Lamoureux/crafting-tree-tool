@@ -136,12 +136,27 @@ function getTileIoRole(nodesById, id) {
   return null;
 }
 
+function getFrameSideTiles(nodesById, contentIds = []) {
+  const { inputs, outputs } = getTreeIO(nodesById, new Set(contentIds));
+  const makeTiles = (ids, role) => ids.map((id) => ({
+    id,
+    role,
+  }));
+
+  return {
+    inputs: makeTiles(inputs, 'I'),
+    outputs: makeTiles(outputs, 'O'),
+  };
+}
+
 function buildFrameNetwork(nodesById, laidOutNodes, contentIds = []) {
   const contentSet = new Set(contentIds);
-  const sourceNodes = laidOutNodes.filter((node) => contentSet.has(node.id));
+  const { inputs, outputs } = getFrameSideTiles(nodesById, contentIds);
+  const sideIds = new Set([...inputs, ...outputs].map((tile) => tile.id));
+  const sourceNodes = laidOutNodes.filter((node) => contentSet.has(node.id) && !sideIds.has(node.id));
 
   if (sourceNodes.length === 0) {
-    return null;
+    return { items: [], edges: [] };
   }
 
   const minX = Math.min(...sourceNodes.map((node) => node.position.x));
@@ -711,6 +726,10 @@ export default function App() {
           ioRole: nodesById[node.id]?.isFrame ? null : getTileIoRole(nodesById, node.id),
           frameContents: (nodesById[node.id]?.frameContentIds ?? (nodesById[node.id]?.frameContentId ? [nodesById[node.id]?.frameContentId] : []))
             .map((id) => ({ id })),
+          frameSides: getFrameSideTiles(
+            nodesById,
+            nodesById[node.id]?.frameContentIds ?? [],
+          ),
           frameNetwork: buildFrameNetwork(
             nodesById,
             laidOutNodes,

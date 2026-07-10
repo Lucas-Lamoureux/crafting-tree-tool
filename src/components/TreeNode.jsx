@@ -100,7 +100,14 @@ export default function TreeNode({ data, selected }) {
       {data.isFrame ? (
         <div className="frame-layout">
           <strong className="frame-title">{data.frameTitle || data.id}</strong>
-          <div className="frame-section frame-section-left">Left</div>
+          <div className="frame-section frame-section-left">
+            {data.frameSides?.inputs?.map((tile) => (
+              <span className="frame-tile frame-side-tile" key={tile.id}>
+                {tile.id}
+                <span className="frame-tile-io">{tile.role}</span>
+              </span>
+            ))}
+          </div>
           <div className="frame-section frame-section-middle">
             {data.frameNetwork?.items?.length > 0 ? (
               <div className="frame-network">
@@ -124,7 +131,14 @@ export default function TreeNode({ data, selected }) {
               ? data.frameContents.map((tile) => <span className="frame-tile" key={tile.id}>{tile.id}</span>)
               : 'Middle'}
           </div>
-          <div className="frame-section frame-section-right">Right</div>
+          <div className="frame-section frame-section-right">
+            {data.frameSides?.outputs?.map((tile) => (
+              <span className="frame-tile frame-side-tile" key={tile.id}>
+                {tile.id}
+                <span className="frame-tile-io">{tile.role}</span>
+              </span>
+            ))}
+          </div>
         </div>
       ) : (
         <strong>{data.id}</strong>
