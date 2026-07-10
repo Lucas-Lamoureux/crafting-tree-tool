@@ -152,10 +152,16 @@ function getFrameSideTiles(nodesById, contentIds = []) {
 function layoutFrameContent(nodesById, contentIds = []) {
   const contentSet = new Set(contentIds);
   const ids = [...contentSet].filter((id) => nodesById[id]);
-  const inputIds = new Set(getFrameSideTiles(nodesById, ids).inputs.map((tile) => tile.id));
-  const tierById = new Map(inputIds.size > 0
-    ? [...inputIds].map((id) => [id, 0])
-    : ids.map((id) => [id, 0]));
+  const parentIdsById = new Map(ids.map((id) => [id, []]));
+  ids.forEach((id) => {
+    (nodesById[id].ingredients ?? []).forEach((childId) => {
+      if (parentIdsById.has(childId)) {
+        parentIdsById.get(childId).push(id);
+      }
+    });
+  });
+
+  const tierById = new Map(ids.filter((id) => parentIdsById.get(id).length === 0).map((id) => [id, 0]));
 
   for (let pass = 0; pass < ids.length; pass += 1) {
     let changed = false;
@@ -181,81 +187,52 @@ function layoutFrameContent(nodesById, contentIds = []) {
     if (!tierById.has(id)) tierById.set(id, 0);
   });
 
-  const outputs = getFrameSideTiles(nodesById, ids).outputs
-    .map((tile) => tile.id)
-    .filter((id) => tierById.has(id));
-  const outputTier = Math.max(...outputs.map((id) => tierById.get(id)), 0);
-  outputs.forEach((id) => tierById.set(id, outputTier));
-
   const tiers = [...new Set(tierById.values())].sort((a, b) => a - b);
+  const tierGroups = new Map();
+  ids.forEach((id) => {
+    const tier = tierById.get(id);
+    const parents = parentIdsById.get(id) ?? [];
+    const groupKey = parents.length > 0
+      ? parents.slice().sort().join('|')
+      : `root:${id}`;
+    tierGroups.set(tier, [...(tierGroups.get(tier) ?? []), { id, groupKey }]);
+  });
+
+  const groupedTiers = tiers.map((tier) => {
+    const groups = new Map();
+    (tierGroups.get(tier) ?? []).forEach(({ id, groupKey }) => {
+      groups.set(groupKey, [...(groups.get(groupKey) ?? []), id]);
+    });
+    return [...groups.values()].map((group) => group.sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })));
+  });
   const tierWidths = tiers.map((tier) => Math.max(
-    ...ids.filter((id) => tierById.get(id) === tier).map((id) => getNodeWidth(nodesById, id)),
+    ...(tierGroups.get(tier) ?? []).map(({ id }) => getNodeWidth(nodesById, id)),
+    0,
   ));
+  const tierHeights = groupedTiers.map((groups) => groups.reduce(
+    (total, group, index) => total
+      + group.reduce((height, id) => height + getNodeHeight(nodesById, id), 0)
+      + Math.max(0, group.length - 1) * 2
+      + (index > 0 ? 5 : 0),
+    0,
+  ));
+  const maxTierHeight = Math.max(...tierHeights, 0);
   const positions = {};
-  let tierX = 0;
+  let tierX = 20;
 
   tiers.forEach((tier, tierIndex) => {
-    const tierIds = ids
-      .filter((id) => tierById.get(id) === tier)
-      .sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
-    let tierY = 0;
-
-    tierIds.forEach((id) => {
-      positions[id] = { x: tierX, y: tierY };
-      tierY += getNodeHeight(nodesById, id) + 2;
+    let tierY = 20 + (maxTierHeight - tierHeights[tierIndex]) / 2;
+    groupedTiers[tierIndex].forEach((group, groupIndex) => {
+      group.forEach((id) => {
+        positions[id] = { x: tierX, y: tierY };
+        tierY += getNodeHeight(nodesById, id) + 2;
+      });
+      if (groupIndex < groupedTiers[tierIndex].length - 1) {
+        tierY += 5;
+      }
     });
 
     tierX += tierWidths[tierIndex] + TIER_GAP;
-  });
-
-  const adjacency = new Map(ids.map((id) => [id, new Set()]));
-  ids.forEach((id) => {
-    (nodesById[id].ingredients ?? []).forEach((childId) => {
-      if (!contentSet.has(childId)) return;
-      adjacency.get(id)?.add(childId);
-      adjacency.get(childId)?.add(id);
-    });
-  });
-
-  const components = [];
-  const seen = new Set();
-  ids.forEach((id) => {
-    if (seen.has(id)) return;
-    const component = [];
-    const stack = [id];
-    while (stack.length > 0) {
-      const current = stack.pop();
-      if (seen.has(current)) continue;
-      seen.add(current);
-      component.push(current);
-      adjacency.get(current)?.forEach((neighbor) => stack.push(neighbor));
-    }
-    components.push(component);
-  });
-
-  const componentBounds = components.map((component) => {
-    const minX = Math.min(...component.map((id) => positions[id].x));
-    const maxX = Math.max(...component.map((id) => positions[id].x + getNodeWidth(nodesById, id)));
-    const minY = Math.min(...component.map((id) => positions[id].y));
-    const maxY = Math.max(...component.map((id) => positions[id].y + getNodeHeight(nodesById, id)));
-    return { minX, maxX, minY, maxY, width: maxX - minX, height: maxY - minY };
-  });
-  const frameContentWidth = Math.max(...componentBounds.map((bounds) => bounds.width), 0);
-  let nextY = 20;
-
-  components.forEach((component, index) => {
-    const bounds = componentBounds[index];
-    const offsetX = 20 + (frameContentWidth - bounds.width) / 2 - bounds.minX;
-    const offsetY = nextY - bounds.minY;
-
-    component.forEach((id) => {
-      positions[id] = {
-        x: positions[id].x + offsetX,
-        y: positions[id].y + offsetY,
-      };
-    });
-
-    nextY += bounds.height + 40;
   });
 
   return positions;
@@ -1633,29 +1610,22 @@ export default function App() {
       .map((frame) => frame.id);
 
     const updatedNodesById = { ...nextNodesById };
+    const framePositions = {};
     const newlyLaidOutNodes = layoutTree(updatedNodesById, rootId, collapsedIds, manualPositions, treeDirections[rootId] ?? 'right');
 
     containingFrameIds.forEach((frameId) => {
       const frame = updatedNodesById[frameId];
       const existingContentIds = frame.frameContentIds ?? (frame.frameContentId ? [frame.frameContentId] : []);
       const frameContentIds = [...new Set([...existingContentIds, ...additions])];
-      const frameContentNodes = newlyLaidOutNodes.filter((node) => frameContentIds.includes(node.id));
-
-      if (frameContentNodes.length === 0) {
-        updatedNodesById[frameId] = { ...frame, frameContentIds };
-        return;
-      }
-
-      const minX = Math.min(...frameContentNodes.map((node) => node.position.x));
-      const maxX = Math.max(...frameContentNodes.map((node) => node.position.x + getNodeWidth(updatedNodesById, node.id)));
-      const minY = Math.min(...frameContentNodes.map((node) => node.position.y));
-      const maxY = Math.max(...frameContentNodes.map((node) => node.position.y + getNodeHeight(updatedNodesById, node.id)));
+      const positions = layoutFrameContent(updatedNodesById, frameContentIds);
+      const bounds = getFramePositionBounds(updatedNodesById, positions, frameContentIds);
+      Object.assign(framePositions, positions);
 
       updatedNodesById[frameId] = {
         ...frame,
         frameContentIds,
-        width: Math.max(frame.width ?? 180, maxX - minX + 40),
-        height: Math.max(frame.height ?? 180, maxY - minY + 40),
+        width: bounds ? Math.max(180, bounds.maxX - bounds.minX + 40) : frame.width,
+        height: bounds ? Math.max(180, bounds.maxY - bounds.minY + 40) : frame.height,
       };
     });
 
@@ -1668,6 +1638,7 @@ export default function App() {
     setNodesById(updatedNodesById);
     setManualPositions((current) => ({
       ...current,
+      ...framePositions,
       ...positions,
     }));
     setSelectedId(parentId);
