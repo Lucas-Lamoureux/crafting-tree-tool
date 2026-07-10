@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 
+let fallbackRowId = 0;
+
 function makeRow() {
   return {
-    key: crypto.randomUUID(),
+    key: typeof crypto?.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `ingredient-row-${fallbackRowId += 1}`,
     value: '',
   };
 }

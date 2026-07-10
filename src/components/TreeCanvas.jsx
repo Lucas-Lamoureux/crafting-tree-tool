@@ -156,8 +156,16 @@ function TreeCanvasInner({
       };
     });
 
-    return [...treeEdges, ...deriveBoundaryEdges(boundaryLinks, boundaries)];
-  }, [boundaries, boundaryLinks, nodesById, collapsedIds, rootId, connectionSides, selectedId]);
+    const routedTreeEdges = treeEdges.map((edge) => ({
+      ...edge,
+      data: {
+        ...edge.data,
+        obstacles: flowNodes,
+      },
+    }));
+
+    return [...routedTreeEdges, ...deriveBoundaryEdges(boundaryLinks, boundaries)];
+  }, [boundaries, boundaryLinks, flowNodes, nodesById, collapsedIds, rootId, connectionSides, selectedId]);
 
   const boundaryRoles = useMemo(() => {
     const roles = {};
