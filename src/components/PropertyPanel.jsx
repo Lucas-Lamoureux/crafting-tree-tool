@@ -11,14 +11,13 @@ export default function PropertyPanel({
   collapsedIds,
   onUpdateData,
 }) {
-  const [dataOpen, setDataOpen] = useState(false);
+  const [panelTab, setPanelTab] = useState('ids');
   const selected = selectedId ? nodesById[selectedId] : null;
   const parents = selected ? getParents(nodesById, selected.id) : [];
   const allNodes = toNodeArray(nodesById);
 
   return (
-    <div className={dataOpen ? 'property-dock is-data-open' : 'property-dock'}>
-      <aside className="property-panel">
+    <aside className="property-panel">
       <section>
         <h2>Selection</h2>
         {selected ? (
@@ -47,57 +46,63 @@ export default function PropertyPanel({
         )}
       </section>
 
-      <section>
-        <h2>All IDs</h2>
-        <div className="id-list">
-          {allNodes.map((node) => (
-            <button
-              key={node.id}
-              className={node.id === selectedId ? 'active' : ''}
-              onClick={() => onSelectId(node.id)}
-              title={node.description || node.id}
-            >
-              {node.id}
-            </button>
-          ))}
+      <section className="panel-list-section">
+        <div className="panel-tabs" role="tablist" aria-label="Selection details">
+          <button
+            className={panelTab === 'ids' ? 'active' : ''}
+            role="tab"
+            aria-selected={panelTab === 'ids'}
+            onClick={() => setPanelTab('ids')}
+          >
+            All IDs
+          </button>
+          <button
+            className={panelTab === 'data' ? 'active' : ''}
+            role="tab"
+            aria-selected={panelTab === 'data'}
+            onClick={() => setPanelTab('data')}
+          >
+            Data
+          </button>
         </div>
+
+        {panelTab === 'ids' ? (
+          <div className="id-list">
+            {allNodes.map((node) => (
+              <button
+                key={node.id}
+                className={node.id === selectedId ? 'active' : ''}
+                onClick={() => onSelectId(node.id)}
+                title={node.description || node.id}
+              >
+                {node.id}
+              </button>
+            ))}
+          </div>
+        ) : selected ? (
+          <div className="tile-data-panel">
+            <div className="tile-data-id">{selected.id}</div>
+            {(selected.dataRows ?? []).map((value, index) => (
+              <input
+                key={`${selected.id}-data-${index}`}
+                type="text"
+                value={value}
+                placeholder="Enter a value"
+                onChange={(event) => {
+                  const nextRows = [...(selected.dataRows ?? [])];
+                  nextRows[index] = event.target.value;
+                  onUpdateData(selected.id, nextRows);
+                }}
+              />
+            ))}
+            <button onClick={() => onUpdateData(selected.id, [...(selected.dataRows ?? []), ''])}>
+              Add Row
+            </button>
+          </div>
+        ) : (
+          <p className="muted">Select a tile to view its data.</p>
+        )}
       </section>
-      </aside>
-      <button
-        className="data-panel-tab"
-        aria-expanded={dataOpen}
-        onClick={() => setDataOpen((current) => !current)}
-      >
-        Data
-      </button>
-      {dataOpen && (
-        <aside className="property-panel data-panel">
-          <section>
-            <h2>Data</h2>
-            {selected ? (
-              <div className="tile-data-panel">
-                <div className="tile-data-id">{selected.id}</div>
-                {(selected.dataRows ?? []).map((value, index) => (
-                  <input
-                    key={`${selected.id}-data-${index}`}
-                    type="text"
-                    value={value}
-                    placeholder="Enter a value"
-                    onChange={(event) => {
-                      const nextRows = [...(selected.dataRows ?? [])];
-                      nextRows[index] = event.target.value;
-                      onUpdateData(selected.id, nextRows);
-                    }}
-                  />
-                ))}
-                <button onClick={() => onUpdateData(selected.id, [...(selected.dataRows ?? []), ''])}>
-                  Add Row
-                </button>
-              </div>
-            ) : <p className="muted">Select a tile to view its data.</p>}
-          </section>
-        </aside>
-      )}
-    </div>
+    </aside>
   );
 }
