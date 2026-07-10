@@ -16,7 +16,6 @@ export default function SearchBar({ onSearch }) {
         placeholder="Find ID"
         aria-label="Find ID"
       />
-      <button type="submit">Center</button>
     </form>
   );
 }
