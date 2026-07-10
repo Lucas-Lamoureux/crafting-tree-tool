@@ -159,6 +159,9 @@ function TreeCanvasInner({
       selected: selectedIds.has(node.id),
       data: {
         ...node.data,
+        onSelectTile: onSelect,
+        onOpenTileMenu: onContextMenu,
+        selectedIds,
         onToggleChecked,
         onUpdate: onUpdateTextBlock,
         boundaryRole: node.type === 'treeNode' ? boundaryRoles[node.id] : null,

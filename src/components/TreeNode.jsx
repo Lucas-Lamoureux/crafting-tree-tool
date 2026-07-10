@@ -52,6 +52,24 @@ function getTileWidth(data) {
 export default function TreeNode({ data, selected }) {
   const handles = handlePositions[data.layoutDirection] ?? handlePositions.right;
   const tileWidth = getTileWidth(data);
+  const selectTile = (event, id) => {
+    event.stopPropagation();
+    data.onSelectTile?.(id, event.ctrlKey || event.metaKey || event.shiftKey ? 'toggle' : 'replace');
+  };
+
+  const openTileMenu = (event, id) => {
+    event.preventDefault();
+    event.stopPropagation();
+    data.onSelectTile?.(id, event.ctrlKey || event.metaKey || event.shiftKey ? 'toggle' : 'replace');
+    data.onOpenTileMenu?.({ id, x: event.clientX, y: event.clientY });
+  };
+
+  const tileClassName = (id, extraClass = '') => [
+    'frame-tile',
+    extraClass,
+    data.selectedIds?.has(id) ? 'is-selected' : '',
+    'nodrag',
+  ].filter(Boolean).join(' ');
 
   return (
     <div
@@ -100,27 +118,31 @@ export default function TreeNode({ data, selected }) {
       {data.isFrame ? (
         <div className="frame-layout">
           <strong className="frame-title">{data.frameTitle || data.id}</strong>
-          <div className="frame-section frame-section-left">
-            {data.frameSides?.inputs?.map((tile) => (
-              <span className="frame-tile frame-side-tile" key={tile.id}>
-                {tile.id}
-                <span className="frame-tile-io">{tile.role}</span>
-              </span>
-            ))}
-          </div>
           <div className="frame-section frame-section-middle">
             {data.frameNetwork?.items?.length > 0 ? (
               <div className="frame-network">
                 <svg className="frame-network-edges" aria-hidden="true">
+                  {data.frameNetwork.inputSeparatorX != null && (
+                    <line
+                      className="frame-network-separator"
+                      x1={data.frameNetwork.inputSeparatorX}
+                      y1="0"
+                      x2={data.frameNetwork.inputSeparatorX}
+                      y2="100%"
+                    />
+                  )}
                   {data.frameNetwork.edges.map((edge) => (
                     <line key={edge.id} x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2} />
                   ))}
                 </svg>
                 {data.frameNetwork.items.map((tile) => (
                   <span
-                    className="frame-tile frame-network-tile"
+                    className={tileClassName(tile.id, 'frame-network-tile')}
                     key={tile.id}
                     style={{ left: tile.x, top: tile.y, width: tile.width, height: tile.height }}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => selectTile(event, tile.id)}
+                    onContextMenu={(event) => openTileMenu(event, tile.id)}
                   >
                     {tile.id}
                     {tile.ioRole && <span className="frame-tile-io">{tile.ioRole}</span>}
@@ -128,16 +150,18 @@ export default function TreeNode({ data, selected }) {
                 ))}
               </div>
             ) : data.frameContents?.length > 0
-              ? data.frameContents.map((tile) => <span className="frame-tile" key={tile.id}>{tile.id}</span>)
+              ? data.frameContents.map((tile) => (
+                <span
+                  className={tileClassName(tile.id)}
+                  key={tile.id}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={(event) => selectTile(event, tile.id)}
+                  onContextMenu={(event) => openTileMenu(event, tile.id)}
+                >
+                  {tile.id}
+                </span>
+              ))
               : 'Middle'}
-          </div>
-          <div className="frame-section frame-section-right">
-            {data.frameSides?.outputs?.map((tile) => (
-              <span className="frame-tile frame-side-tile" key={tile.id}>
-                {tile.id}
-                <span className="frame-tile-io">{tile.role}</span>
-              </span>
-            ))}
           </div>
         </div>
       ) : (

@@ -200,7 +200,7 @@ button:disabled {
 
 .frame-layout {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) 64px;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(18px, 10%) 1fr;
   width: 100%;
   height: 100%;
@@ -233,22 +233,14 @@ button:disabled {
   font-size: 11px;
   font-weight: 700;
   line-height: 1;
+  position: relative;
+  z-index: 1;
 }
 
 .frame-section-middle {
+  grid-column: 1;
   position: relative;
   padding: 10px;
-}
-
-.frame-section-left,
-.frame-section-right {
-  display: flex;
-  flex-direction: column;
-  align-content: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 6px;
-  overflow: hidden;
 }
 
 .frame-network {
@@ -273,6 +265,12 @@ button:disabled {
   stroke-width: 1.5;
 }
 
+.frame-network-edges .frame-network-separator {
+  stroke: rgba(183, 199, 193, 0.48);
+  stroke-width: 1;
+  stroke-dasharray: 5 5;
+}
+
 .frame-tile {
   display: grid;
   place-items: center;
@@ -290,23 +288,19 @@ button:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 .frame-network-tile {
   position: absolute;
-  z-index: 1;
+  z-index: 3;
   box-sizing: border-box;
 }
 
-.frame-side-tile {
-  position: relative;
-  width: 100%;
-  min-width: 0;
-  min-height: 24px;
-  box-sizing: border-box;
-  padding: 0 4px;
-  font-size: 9px;
+.frame-tile.is-selected {
+  border-color: #f0c96c;
+  box-shadow: 0 0 0 2px rgba(240, 201, 108, 0.32);
 }
 
 .frame-tile-io {
@@ -319,9 +313,6 @@ button:disabled {
   line-height: 1;
 }
 
-.frame-section + .frame-section {
-  border-left: 1px solid #50625d;
-}
 
 .block-modal {
   width: min(420px, calc(100vw - 32px));

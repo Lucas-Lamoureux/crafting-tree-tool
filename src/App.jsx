@@ -149,14 +149,74 @@ function getFrameSideTiles(nodesById, contentIds = []) {
   };
 }
 
-function buildFrameNetwork(nodesById, laidOutNodes, contentIds = []) {
+function layoutFrameContent(nodesById, contentIds = []) {
   const contentSet = new Set(contentIds);
-  const { inputs, outputs } = getFrameSideTiles(nodesById, contentIds);
-  const sideIds = new Set([...inputs, ...outputs].map((tile) => tile.id));
-  const sourceNodes = laidOutNodes.filter((node) => contentSet.has(node.id) && !sideIds.has(node.id));
+  const ids = [...contentSet].filter((id) => nodesById[id]);
+  const inputIds = new Set(getFrameSideTiles(nodesById, ids).inputs.map((tile) => tile.id));
+  const tierById = new Map(inputIds.size > 0
+    ? [...inputIds].map((id) => [id, 0])
+    : ids.map((id) => [id, 0]));
+
+  for (let pass = 0; pass < ids.length; pass += 1) {
+    let changed = false;
+
+    ids.forEach((id) => {
+      const currentTier = tierById.get(id);
+      if (currentTier == null) return;
+
+      (nodesById[id].ingredients ?? []).forEach((childId) => {
+        if (!contentSet.has(childId)) return;
+        const nextTier = currentTier + 1;
+        if ((tierById.get(childId) ?? -1) < nextTier) {
+          tierById.set(childId, nextTier);
+          changed = true;
+        }
+      });
+    });
+
+    if (!changed) break;
+  }
+
+  ids.forEach((id) => {
+    if (!tierById.has(id)) tierById.set(id, 0);
+  });
+
+  const outputs = getFrameSideTiles(nodesById, ids).outputs
+    .map((tile) => tile.id)
+    .filter((id) => tierById.has(id));
+  const outputTier = Math.max(...outputs.map((id) => tierById.get(id)), 0);
+  outputs.forEach((id) => tierById.set(id, outputTier));
+
+  const tiers = [...new Set(tierById.values())].sort((a, b) => a - b);
+  const tierWidths = tiers.map((tier) => Math.max(
+    ...ids.filter((id) => tierById.get(id) === tier).map((id) => getNodeWidth(nodesById, id)),
+  ));
+  const positions = {};
+  let tierX = 0;
+
+  tiers.forEach((tier, tierIndex) => {
+    const tierIds = ids
+      .filter((id) => tierById.get(id) === tier)
+      .sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
+    let tierY = 0;
+
+    tierIds.forEach((id) => {
+      positions[id] = { x: tierX, y: tierY };
+      tierY += getNodeHeight(nodesById, id) + 2;
+    });
+
+    tierX += tierWidths[tierIndex] + TIER_GAP;
+  });
+
+  return positions;
+}
+
+function buildFrameNetwork(nodesById, laidOutNodes, contentIds = [], frameWidth = 0) {
+  const contentSet = new Set(contentIds);
+  const sourceNodes = laidOutNodes.filter((node) => contentSet.has(node.id));
 
   if (sourceNodes.length === 0) {
-    return { items: [], edges: [] };
+    return { items: [], edges: [], crossEdges: [] };
   }
 
   const minX = Math.min(...sourceNodes.map((node) => node.position.x));
@@ -169,8 +229,89 @@ function buildFrameNetwork(nodesById, laidOutNodes, contentIds = []) {
     width: getNodeWidth(nodesById, node.id),
     height: getNodeHeight(nodesById, node.id),
   }));
+  const { inputs, outputs } = getFrameSideTiles(nodesById, contentIds);
+  const inputIds = new Set(inputs.map((tile) => tile.id));
+  const outputIds = new Set(outputs.map((tile) => tile.id));
   const itemById = new Map(items.map((item) => [item.id, item]));
+  const inputItems = items.filter((item) => inputIds.has(item.id));
+  const outputItems = items.filter((item) => outputIds.has(item.id) && !inputIds.has(item.id));
+  const networkWidth = Math.max(
+    ...items.map((item) => item.x + item.width),
+    Math.max(0, frameWidth - 20),
+  );
+  const leftMargin = inputItems.length > 0
+    ? Math.min(...inputItems.map((item) => item.x))
+    : 10;
+  const rightMargin = outputItems.length > 0
+    ? networkWidth - Math.max(...outputItems.map((item) => item.x + item.width))
+    : leftMargin;
+  const edgeInset = Math.max(10, Math.min(leftMargin, rightMargin));
+
+  const tierById = new Map(inputItems.map((item) => [item.id, 0]));
+  for (let pass = 0; pass < items.length; pass += 1) {
+    let changed = false;
+
+    items.forEach((item) => {
+      const parentTier = tierById.get(item.id);
+      if (parentTier == null) return;
+
+      (nodesById[item.id]?.ingredients ?? []).forEach((childId) => {
+        if (!itemById.has(childId)) return;
+        const nextTier = parentTier + 1;
+        if ((tierById.get(childId) ?? -1) < nextTier) {
+          tierById.set(childId, nextTier);
+          changed = true;
+        }
+      });
+    });
+
+    if (!changed) break;
+  }
+
+  const fallbackTierCount = Math.max(1, ...tierById.values(), 0);
+  items.forEach((item) => {
+    if (!tierById.has(item.id)) {
+      tierById.set(item.id, Math.round((item.x / Math.max(1, networkWidth)) * fallbackTierCount));
+    }
+  });
+
+  if (outputItems.length > 1) {
+    const outputTier = Math.max(...outputItems.map((item) => tierById.get(item.id) ?? 0));
+    outputItems.forEach((item) => tierById.set(item.id, outputTier));
+  }
+
+  const tiers = [...new Set(tierById.values())].sort((a, b) => a - b);
+  const tierWidths = tiers.map((tier) => Math.max(
+    ...items.filter((item) => tierById.get(item.id) === tier).map((item) => item.width),
+  ));
+  const totalTierWidth = tierWidths.reduce((sum, width) => sum + width, 0);
+  const tierGap = tiers.length > 1
+    ? Math.max(2, (networkWidth - edgeInset * 2 - totalTierWidth) / (tiers.length - 1))
+    : 0;
+  const tierX = new Map();
+  let nextTierX = edgeInset;
+  tiers.forEach((tier, index) => {
+    tierX.set(tier, nextTierX);
+    nextTierX += tierWidths[index] + tierGap;
+  });
+
+  items.forEach((item) => {
+    item.x = tierX.get(tierById.get(item.id)) ?? item.x;
+  });
+
   const edges = [];
+  const nextTierItems = items.filter((item) => inputItems.some((input) => (
+    nodesById[input.id]?.ingredients ?? []
+  ).includes(item.id)));
+  const inputEdge = inputItems.length > 0
+    ? Math.max(...inputItems.map((item) => item.x + item.width))
+    : null;
+  const nextTierEdge = nextTierItems.length > 0
+    ? Math.min(...nextTierItems.map((item) => item.x))
+    : null;
+  const inputSeparatorX = inputEdge != null && nextTierEdge != null && nextTierEdge > inputEdge
+    ? (inputEdge + nextTierEdge) / 2
+    : null;
 
   items.forEach((item) => {
     (nodesById[item.id]?.ingredients ?? []).forEach((childId) => {
@@ -183,10 +324,12 @@ function buildFrameNetwork(nodesById, laidOutNodes, contentIds = []) {
         x2: child.x + child.width / 2,
         y2: child.y + child.height / 2,
       });
+      return;
     });
+
   });
 
-  return { items, edges };
+  return { items, edges, inputSeparatorX };
 }
 
 function getConnectionAnchor(parentId, childId, side, flowNodes, nodesById) {
@@ -734,6 +877,7 @@ export default function App() {
             nodesById,
             laidOutNodes,
             nodesById[node.id]?.frameContentIds ?? [],
+            nodesById[node.id]?.width,
           ),
           width: nodesById[node.id]?.width,
           height: nodesById[node.id]?.height,
@@ -819,6 +963,25 @@ export default function App() {
     const result = addIngredient(nodesById, parentId, ingredientId);
 
     if (setResult(result, `Added ${ingredientId} to ${parentId}.`)) {
+      const addedIds = [ingredientId, ...getDescendants(result.nodesById, ingredientId)];
+      const updatedNodesById = { ...result.nodesById };
+
+      Object.values(updatedNodesById)
+        .filter((node) => node.isFrame)
+        .filter((frame) => {
+          const frameContentIds = frame.frameContentIds ?? (frame.frameContentId ? [frame.frameContentId] : []);
+          return frameContentIds.includes(parentId);
+        })
+        .forEach((frame) => {
+          const existingContentIds = frame.frameContentIds ?? (frame.frameContentId ? [frame.frameContentId] : []);
+          updatedNodesById[frame.id] = {
+            ...frame,
+            frameContentIds: [...new Set([...existingContentIds, ...addedIds])],
+          };
+        });
+
+      setNodesById(updatedNodesById);
+
       if ((nodesById[parentId]?.isBlock || nodesById[parentId]?.isFrame) && side) {
         setConnectionSides((current) => ({
           ...current,
@@ -1151,6 +1314,23 @@ export default function App() {
       return true;
     };
 
+    const relayoutFrame = (tileId) => {
+      const frame = nodesById[tileId]?.isFrame
+        ? nodesById[tileId]
+        : Object.values(nodesById).find((node) => {
+          if (!node.isFrame) return false;
+          const contentIds = node.frameContentIds ?? (node.frameContentId ? [node.frameContentId] : []);
+          return contentIds.includes(tileId);
+        });
+
+      if (!frame) return false;
+
+      const contentIds = frame.frameContentIds ?? (frame.frameContentId ? [frame.frameContentId] : []);
+      const positions = layoutFrameContent(nodesById, contentIds);
+      setManualPositions((current) => ({ ...current, ...positions }));
+      return true;
+    };
+
     if (action === 'add') {
       setPendingIngredientParentId(id);
       setMessage(`Click an existing ID to add it as an ingredient of ${id}.`);
@@ -1196,7 +1376,9 @@ export default function App() {
     }
 
     if (action === 'auto-layout') {
-      if (relayoutBlockTrees(id)) {
+      if (relayoutFrame(id)) {
+        setMessage(`Auto-layout arranged the tiles inside ${nodesById[id]?.isFrame ? id : 'the frame'} using frame spacing.`);
+      } else if (relayoutBlockTrees(id)) {
         setMessage(`Auto-layout rebuilt ${id}'s connected trees.`);
       } else {
         const direction = treeDirections[id] ?? directionByNode[id] ?? 'right';
@@ -1337,13 +1519,51 @@ export default function App() {
       nextNodesById = result.nodesById;
     }
 
+    const additions = new Set(
+      ingredientIds.flatMap((ingredientId) => [ingredientId, ...getDescendants(nextNodesById, ingredientId)]),
+    );
+    const containingFrameIds = Object.values(nextNodesById)
+      .filter((node) => node.isFrame)
+      .filter((frame) => {
+        const frameContentIds = frame.frameContentIds ?? (frame.frameContentId ? [frame.frameContentId] : []);
+        return frameContentIds.includes(parentId);
+      })
+      .map((frame) => frame.id);
+
+    const updatedNodesById = { ...nextNodesById };
+    const newlyLaidOutNodes = layoutTree(updatedNodesById, rootId, collapsedIds, manualPositions, treeDirections[rootId] ?? 'right');
+
+    containingFrameIds.forEach((frameId) => {
+      const frame = updatedNodesById[frameId];
+      const existingContentIds = frame.frameContentIds ?? (frame.frameContentId ? [frame.frameContentId] : []);
+      const frameContentIds = [...new Set([...existingContentIds, ...additions])];
+      const frameContentNodes = newlyLaidOutNodes.filter((node) => frameContentIds.includes(node.id));
+
+      if (frameContentNodes.length === 0) {
+        updatedNodesById[frameId] = { ...frame, frameContentIds };
+        return;
+      }
+
+      const minX = Math.min(...frameContentNodes.map((node) => node.position.x));
+      const maxX = Math.max(...frameContentNodes.map((node) => node.position.x + getNodeWidth(updatedNodesById, node.id)));
+      const minY = Math.min(...frameContentNodes.map((node) => node.position.y));
+      const maxY = Math.max(...frameContentNodes.map((node) => node.position.y + getNodeHeight(updatedNodesById, node.id)));
+
+      updatedNodesById[frameId] = {
+        ...frame,
+        frameContentIds,
+        width: Math.max(frame.width ?? 180, maxX - minX + 40),
+        height: Math.max(frame.height ?? 180, maxY - minY + 40),
+      };
+    });
+
     const direction = treeDirections[parentId] ?? directionByNode[parentId] ?? 'right';
-    const anchor = flowNodes.find((node) => node.id === parentId)?.position
+    const anchor = newlyLaidOutNodes.find((node) => node.id === parentId)?.position
       ?? manualPositions[parentId]
       ?? { x: 0, y: 0 };
-    const positions = layoutSubtreePositions(nextNodesById, parentId, collapsedIds, direction, anchor);
+    const positions = layoutSubtreePositions(updatedNodesById, parentId, collapsedIds, direction, anchor);
 
-    setNodesById(nextNodesById);
+    setNodesById(updatedNodesById);
     setManualPositions((current) => ({
       ...current,
       ...positions,
@@ -1352,7 +1572,7 @@ export default function App() {
     setSelectedIds(new Set([parentId]));
     setIngredientModalParentId(null);
     setMessage(`Added ${ingredientIds.length} ingredient${ingredientIds.length === 1 ? '' : 's'} to ${parentId}.`);
-  }, [collapsedIds, directionByNode, flowNodes, manualPositions, nodesById, treeDirections]);
+  }, [collapsedIds, directionByNode, manualPositions, nodesById, rootId, treeDirections]);
 
   const handleAddBlock = useCallback(() => {
     setBlockModal({ mode: 'create' });
@@ -1490,7 +1710,7 @@ export default function App() {
       [frameId]: {
         ...current[frameId],
         frameContentIds: [...new Set([...existingIds, ...contentIds])],
-        width: Math.max(180, contentWidth + 128),
+        width: Math.max(180, contentWidth + 40),
         height: Math.max(current[frameId].height ?? 180, Math.ceil(contentHeight / 0.9)),
       },
     }));
