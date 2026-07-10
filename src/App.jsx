@@ -208,7 +208,69 @@ function layoutFrameContent(nodesById, contentIds = []) {
     tierX += tierWidths[tierIndex] + TIER_GAP;
   });
 
+  const adjacency = new Map(ids.map((id) => [id, new Set()]));
+  ids.forEach((id) => {
+    (nodesById[id].ingredients ?? []).forEach((childId) => {
+      if (!contentSet.has(childId)) return;
+      adjacency.get(id)?.add(childId);
+      adjacency.get(childId)?.add(id);
+    });
+  });
+
+  const components = [];
+  const seen = new Set();
+  ids.forEach((id) => {
+    if (seen.has(id)) return;
+    const component = [];
+    const stack = [id];
+    while (stack.length > 0) {
+      const current = stack.pop();
+      if (seen.has(current)) continue;
+      seen.add(current);
+      component.push(current);
+      adjacency.get(current)?.forEach((neighbor) => stack.push(neighbor));
+    }
+    components.push(component);
+  });
+
+  const componentBounds = components.map((component) => {
+    const minX = Math.min(...component.map((id) => positions[id].x));
+    const maxX = Math.max(...component.map((id) => positions[id].x + getNodeWidth(nodesById, id)));
+    const minY = Math.min(...component.map((id) => positions[id].y));
+    const maxY = Math.max(...component.map((id) => positions[id].y + getNodeHeight(nodesById, id)));
+    return { minX, maxX, minY, maxY, width: maxX - minX, height: maxY - minY };
+  });
+  const frameContentWidth = Math.max(...componentBounds.map((bounds) => bounds.width), 0);
+  let nextY = 20;
+
+  components.forEach((component, index) => {
+    const bounds = componentBounds[index];
+    const offsetX = 20 + (frameContentWidth - bounds.width) / 2 - bounds.minX;
+    const offsetY = nextY - bounds.minY;
+
+    component.forEach((id) => {
+      positions[id] = {
+        x: positions[id].x + offsetX,
+        y: positions[id].y + offsetY,
+      };
+    });
+
+    nextY += bounds.height + 40;
+  });
+
   return positions;
+}
+
+function getFramePositionBounds(nodesById, positions, ids) {
+  const positionedIds = ids.filter((id) => positions[id] && nodesById[id]);
+  if (positionedIds.length === 0) return null;
+
+  return {
+    minX: Math.min(...positionedIds.map((id) => positions[id].x)),
+    minY: Math.min(...positionedIds.map((id) => positions[id].y)),
+    maxX: Math.max(...positionedIds.map((id) => positions[id].x + getNodeWidth(nodesById, id))),
+    maxY: Math.max(...positionedIds.map((id) => positions[id].y + getNodeHeight(nodesById, id))),
+  };
 }
 
 function buildFrameNetwork(nodesById, laidOutNodes, contentIds = [], frameWidth = 0) {
@@ -1374,6 +1436,17 @@ export default function App() {
       const contentIds = frame.frameContentIds ?? (frame.frameContentId ? [frame.frameContentId] : []);
       const positions = layoutFrameContent(nodesById, contentIds);
       setManualPositions((current) => ({ ...current, ...positions }));
+      const bounds = getFramePositionBounds(nodesById, positions, contentIds);
+      if (bounds) {
+        setNodesById((current) => ({
+          ...current,
+          [frame.id]: {
+            ...current[frame.id],
+            width: Math.max(180, bounds.maxX - bounds.minX + 40),
+            height: Math.max(180, bounds.maxY - bounds.minY + 40),
+          },
+        }));
+      }
       return true;
     };
 
@@ -1744,24 +1817,23 @@ export default function App() {
     const existingIds = frame.frameContentIds ?? (frame.frameContentId ? [frame.frameContentId] : []);
     if (existingIds.includes(tileId)) return;
     const contentIds = [tileId, ...getDescendants(nodesById, tileId)];
-    const networkNodes = flowNodes.filter((item) => contentIds.includes(item.id));
-    const minX = Math.min(...networkNodes.map((item) => item.position.x));
-    const minY = Math.min(...networkNodes.map((item) => item.position.y));
-    const maxX = Math.max(...networkNodes.map((item) => item.position.x + getNodeWidth(nodesById, item.id)));
-    const maxY = Math.max(...networkNodes.map((item) => item.position.y + getNodeHeight(nodesById, item.id)));
-    const contentWidth = maxX - minX + 40;
-    const contentHeight = maxY - minY + 40;
+    const allContentIds = [...new Set([...existingIds, ...contentIds])];
+    const positions = layoutFrameContent(nodesById, allContentIds);
+    const bounds = getFramePositionBounds(nodesById, positions, allContentIds);
+    const contentWidth = bounds ? bounds.maxX - bounds.minX + 40 : 180;
+    const contentHeight = bounds ? bounds.maxY - bounds.minY + 40 : 180;
     setNodesById((current) => ({
       ...current,
       [frameId]: {
         ...current[frameId],
-        frameContentIds: [...new Set([...existingIds, ...contentIds])],
+        frameContentIds: allContentIds,
         width: Math.max(180, contentWidth + 40),
-        height: Math.max(current[frameId].height ?? 180, Math.ceil(contentHeight / 0.9)),
+        height: Math.max(180, contentHeight),
       },
     }));
+    setManualPositions((current) => ({ ...current, ...positions }));
     setMessage(`Placed ${tileId} in the middle of ${frame.frameTitle || frameId}.`);
-  }, [flowNodes, nodesById]);
+  }, [nodesById]);
 
   const handleResizeBlock = useCallback(({ id, width, height }) => {
     if (!nodesById[id]?.isBlock && !nodesById[id]?.isFrame) {
