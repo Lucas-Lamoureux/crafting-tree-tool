@@ -335,6 +335,8 @@ function buildFrameNetwork(nodesById, laidOutNodes, contentIds = [], frameWidth 
       if (!child) return;
       edges.push({
         id: `${item.id}->${child.id}`,
+        source: item.id,
+        target: child.id,
         x1: item.x + item.width / 2,
         y1: item.y + item.height / 2,
         x2: child.x + child.width / 2,
@@ -1250,6 +1252,34 @@ export default function App() {
   }, [removeNodesByIds, selectedId, selectedIds]);
 
   const handleContextAction = useCallback((action) => {
+    if (contextMenu?.type === 'edge' && action === 'switch-direction') {
+      const { source, target } = contextMenu;
+      const removed = removeIngredient(nodesById, source, target);
+
+      if (!removed.ok) {
+        setMessage(removed.message);
+        setContextMenu(null);
+        return;
+      }
+
+      const added = addIngredient(removed.nodesById, target, source);
+
+      if (added.ok) {
+        setNodesById(added.nodesById);
+        setConnectionSides((current) => removeConnectionSide(
+          removeConnectionSide(current, source, target),
+          target,
+          source,
+        ));
+        setMessage(`Switched connection direction to ${target} -> ${source}.`);
+      } else {
+        setMessage(added.message);
+      }
+
+      setContextMenu(null);
+      return;
+    }
+
     const id = contextMenu?.id;
 
     if (!id) {

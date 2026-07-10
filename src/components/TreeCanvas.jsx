@@ -161,6 +161,7 @@ function TreeCanvasInner({
         ...node.data,
         onSelectTile: onSelect,
         onOpenTileMenu: onContextMenu,
+        onOpenEdgeMenu: onContextMenu,
         selectedIds,
         onToggleChecked,
         onUpdate: onUpdateTextBlock,
@@ -422,6 +423,24 @@ function TreeCanvasInner({
     onDisconnectIngredient(edge.source, edge.target);
   }, [onDisconnectBoundary, onDisconnectIngredient]);
 
+  const handleEdgeContextMenu = useCallback((event, edge) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (edge.id.startsWith('boundary-link:')) {
+      return;
+    }
+
+    onContextMenu({
+      type: 'edge',
+      edgeId: edge.id,
+      source: edge.source,
+      target: edge.target,
+      x: event.clientX,
+      y: event.clientY,
+    });
+  }, [onContextMenu]);
+
   const handleInit = useCallback((instance) => {
     onViewportReady(instance);
     window.requestAnimationFrame(() => instance.fitView({ padding: 0.25, duration: 250 }));
@@ -455,6 +474,7 @@ function TreeCanvasInner({
         onConnectStart={handleConnectStart}
         onConnectEnd={handleConnectEnd}
         onEdgeClick={handleEdgeClick}
+        onEdgeContextMenu={handleEdgeContextMenu}
         onNodeClick={handleNodeClick}
         onPaneClick={() => {
           onCloseContext();

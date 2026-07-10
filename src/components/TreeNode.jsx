@@ -146,7 +146,26 @@ export default function TreeNode({ data, selected }) {
                     />
                   )}
                   {data.frameNetwork.edges.map((edge) => (
-                    <line key={edge.id} className="frame-network-edge" x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2} />
+                    <line
+                      key={edge.id}
+                      className="frame-network-edge"
+                      x1={edge.x1}
+                      y1={edge.y1}
+                      x2={edge.x2}
+                      y2={edge.y2}
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        data.onOpenEdgeMenu?.({
+                          type: 'edge',
+                          edgeId: edge.id,
+                          source: edge.source,
+                          target: edge.target,
+                          x: event.clientX,
+                          y: event.clientY,
+                        });
+                      }}
+                    />
                   ))}
                 </svg>
                 {data.frameNetwork.items.map((tile) => (

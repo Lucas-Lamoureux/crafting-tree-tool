@@ -11,6 +11,22 @@ export default function ContextMenu({ menu, node, hasBoundary, onAction, onClose
     return null;
   }
 
+  if (menu.type === 'edge') {
+    return (
+      <>
+        <button className="menu-scrim" aria-label="Close connection menu" onClick={onClose} />
+        <div
+          className="context-menu edge-context-menu"
+          style={{ left: menu.x, top: menu.y }}
+          onMouseDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <button onClick={(event) => handleAction(event, 'switch-direction', onAction)}>Switch Direction</button>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <button className="menu-scrim" aria-label="Close context menu" onClick={onClose} />

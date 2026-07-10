@@ -267,6 +267,7 @@ button:disabled {
 
 .frame-network-edges .frame-network-edge {
   marker-end: url(#frame-arrow);
+  pointer-events: stroke;
 }
 
 .frame-network-edges .frame-network-separator {
