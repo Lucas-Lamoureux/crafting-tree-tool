@@ -838,7 +838,6 @@ export default function App() {
   const [addTileModalOpen, setAddTileModalOpen] = useState(false);
   const [blockModal, setBlockModal] = useState(null);
   const [frameModalOpen, setFrameModalOpen] = useState(false);
-  const [dataEnabled, setDataEnabled] = useState(false);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [message, setMessage] = useState('Ready');
   const flowRef = useRef(null);
@@ -2117,8 +2116,6 @@ export default function App() {
         onAddNode={handleAddNode}
         onAddBlock={handleAddBlock}
         onAddFrame={handleAddFrame}
-        dataEnabled={dataEnabled}
-        onToggleData={() => setDataEnabled((current) => !current)}
         onFit={() => flowRef.current?.fitView({ padding: 0.25, duration: 350 })}
         fileInputRef={fileInputRef}
         importInputRef={importInputRef}
@@ -2178,7 +2175,6 @@ export default function App() {
           }}
           onToggleCollapse={toggleCollapse}
           collapsedIds={collapsedIds}
-          dataEnabled={dataEnabled}
           onUpdateData={handleUpdateData}
         />
       </div>

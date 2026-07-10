@@ -1,6 +1,6 @@
 import SearchBar from './SearchBar.jsx';
 
-const EDIT_VERSION = 30;
+const EDIT_VERSION = 31;
 
 export default function Toolbar({
   nodeCount,
@@ -12,8 +12,6 @@ export default function Toolbar({
   onAddNode,
   onAddBlock,
   onAddFrame,
-  dataEnabled,
-  onToggleData,
   onFit,
   fileInputRef,
   importInputRef,
@@ -42,13 +40,6 @@ export default function Toolbar({
             <button onClick={onAddFrame}>Frame</button>
           </div>
         </details>
-        <button
-          className={dataEnabled ? 'toggle-button is-active' : 'toggle-button'}
-          aria-pressed={dataEnabled}
-          onClick={onToggleData}
-        >
-          Data
-        </button>
         <button onClick={onFit}>Fit</button>
         <button onClick={onSave}>Save JSON</button>
         <button onClick={() => fileInputRef.current?.click()}>Load JSON</button>

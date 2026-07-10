@@ -190,12 +190,6 @@ button:disabled {
   text-align: left;
 }
 
-.toggle-button.is-active {
-  border-color: #79c7a0;
-  background: #315444;
-  color: #effff5;
-}
-
 .tile-data-panel {
   display: grid;
   gap: 8px;
@@ -225,7 +219,7 @@ button:disabled {
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
+  grid-template-columns: minmax(0, 1fr) auto;
   min-height: 0;
 }
 
@@ -828,6 +822,18 @@ button:disabled {
   font-size: 12px;
 }
 
+.property-dock {
+  position: relative;
+  display: grid;
+  grid-template-columns: 280px;
+  min-width: 280px;
+  min-height: 0;
+}
+
+.property-dock.is-data-open {
+  grid-template-columns: 280px 280px;
+}
+
 .property-panel {
   display: flex;
   flex-direction: column;
@@ -837,6 +843,27 @@ button:disabled {
   background: #202b29;
   padding: 16px;
   overflow: auto;
+}
+
+.data-panel-tab {
+  position: absolute;
+  top: 24px;
+  left: 280px;
+  z-index: 5;
+  width: 30px;
+  height: 72px;
+  border-radius: 0 6px 6px 0;
+  padding: 6px 4px;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  background: #315444;
+  color: #effff5;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.data-panel-tab:hover {
+  background: #3b6954;
 }
 
 .property-panel section {
@@ -1062,6 +1089,21 @@ button:disabled {
   .workspace {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 1fr) 220px;
+  }
+
+  .property-dock,
+  .property-dock.is-data-open {
+    grid-template-columns: 1fr;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .property-dock.is-data-open {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .data-panel-tab {
+    left: 50%;
   }
 
   .property-panel {

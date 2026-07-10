@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { getParents, toNodeArray } from '../logic/treeUtils.js';
 
 export default function PropertyPanel({
@@ -8,15 +9,16 @@ export default function PropertyPanel({
   onSetRoot,
   onToggleCollapse,
   collapsedIds,
-  dataEnabled,
   onUpdateData,
 }) {
+  const [dataOpen, setDataOpen] = useState(false);
   const selected = selectedId ? nodesById[selectedId] : null;
   const parents = selected ? getParents(nodesById, selected.id) : [];
   const allNodes = toNodeArray(nodesById);
 
   return (
-    <aside className="property-panel">
+    <div className={dataOpen ? 'property-dock is-data-open' : 'property-dock'}>
+      <aside className="property-panel">
       <section>
         <h2>Selection</h2>
         {selected ? (
@@ -45,31 +47,6 @@ export default function PropertyPanel({
         )}
       </section>
 
-      {dataEnabled && selected && (
-        <section>
-          <h2>Data</h2>
-          <div className="tile-data-panel">
-            <div className="tile-data-id">{selected.id}</div>
-            {(selected.dataRows ?? []).map((value, index) => (
-              <input
-                key={`${selected.id}-data-${index}`}
-                type="text"
-                value={value}
-                placeholder="Enter a value"
-                onChange={(event) => {
-                  const nextRows = [...(selected.dataRows ?? [])];
-                  nextRows[index] = event.target.value;
-                  onUpdateData(selected.id, nextRows);
-                }}
-              />
-            ))}
-            <button onClick={() => onUpdateData(selected.id, [...(selected.dataRows ?? []), ''])}>
-              Add Row
-            </button>
-          </div>
-        </section>
-      )}
-
       <section>
         <h2>All IDs</h2>
         <div className="id-list">
@@ -85,6 +62,42 @@ export default function PropertyPanel({
           ))}
         </div>
       </section>
-    </aside>
+      </aside>
+      <button
+        className="data-panel-tab"
+        aria-expanded={dataOpen}
+        onClick={() => setDataOpen((current) => !current)}
+      >
+        Data
+      </button>
+      {dataOpen && (
+        <aside className="property-panel data-panel">
+          <section>
+            <h2>Data</h2>
+            {selected ? (
+              <div className="tile-data-panel">
+                <div className="tile-data-id">{selected.id}</div>
+                {(selected.dataRows ?? []).map((value, index) => (
+                  <input
+                    key={`${selected.id}-data-${index}`}
+                    type="text"
+                    value={value}
+                    placeholder="Enter a value"
+                    onChange={(event) => {
+                      const nextRows = [...(selected.dataRows ?? [])];
+                      nextRows[index] = event.target.value;
+                      onUpdateData(selected.id, nextRows);
+                    }}
+                  />
+                ))}
+                <button onClick={() => onUpdateData(selected.id, [...(selected.dataRows ?? []), ''])}>
+                  Add Row
+                </button>
+              </div>
+            ) : <p className="muted">Select a tile to view its data.</p>}
+          </section>
+        </aside>
+      )}
+    </div>
   );
 }
