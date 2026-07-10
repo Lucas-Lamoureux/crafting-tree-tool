@@ -1,4 +1,5 @@
 import { wouldCreateCycle } from './cycleDetection.js';
+import { MarkerType } from '@xyflow/react';
 
 export function normalizeId(value) {
   return String(value ?? '').trim();
@@ -57,6 +58,7 @@ export function deriveEdges(nodesById, collapsedIds = new Set(), rootId = null, 
           sourceHandle: (nodesById[parentId]?.isBlock || nodesById[parentId]?.isFrame) && side ? `source-${side}` : undefined,
           type: 'straight',
           animated: false,
+          markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: '#9ab0a8' },
           style: { strokeWidth: 1.8 },
         });
       }

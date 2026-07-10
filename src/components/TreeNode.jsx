@@ -122,6 +122,11 @@ export default function TreeNode({ data, selected }) {
             {data.frameNetwork?.items?.length > 0 ? (
               <div className="frame-network">
                 <svg className="frame-network-edges" aria-hidden="true">
+                  <defs>
+                    <marker id="frame-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto" markerUnits="strokeWidth">
+                      <path d="M0,0 L7,3.5 L0,7 z" fill="#9ab0a8" />
+                    </marker>
+                  </defs>
                   {data.frameNetwork.inputSeparatorX != null && (
                     <line
                       className="frame-network-separator"
@@ -131,8 +136,17 @@ export default function TreeNode({ data, selected }) {
                       y2="100%"
                     />
                   )}
+                  {data.frameNetwork.outputSeparatorX != null && (
+                    <line
+                      className="frame-network-separator"
+                      x1={data.frameNetwork.outputSeparatorX}
+                      y1="0"
+                      x2={data.frameNetwork.outputSeparatorX}
+                      y2="100%"
+                    />
+                  )}
                   {data.frameNetwork.edges.map((edge) => (
-                    <line key={edge.id} x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2} />
+                    <line key={edge.id} className="frame-network-edge" x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2} />
                   ))}
                 </svg>
                 {data.frameNetwork.items.map((tile) => (

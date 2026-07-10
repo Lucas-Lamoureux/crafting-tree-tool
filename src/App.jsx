@@ -313,6 +313,22 @@ function buildFrameNetwork(nodesById, laidOutNodes, contentIds = [], frameWidth 
     ? (inputEdge + nextTierEdge) / 2
     : null;
 
+  const outputTier = outputItems.length > 0
+    ? Math.max(...outputItems.map((item) => tierById.get(item.id) ?? 0))
+    : null;
+  const secondLastTier = outputTier != null
+    ? tiers.filter((tier) => tier < outputTier).at(-1)
+    : null;
+  const secondLastEdge = secondLastTier != null
+    ? Math.max(...items.filter((item) => tierById.get(item.id) === secondLastTier).map((item) => item.x + item.width))
+    : null;
+  const outputEdge = outputTier != null
+    ? Math.min(...outputItems.map((item) => item.x))
+    : null;
+  const outputSeparatorX = secondLastEdge != null && outputEdge != null && outputEdge > secondLastEdge
+    ? (secondLastEdge + outputEdge) / 2
+    : null;
+
   items.forEach((item) => {
     (nodesById[item.id]?.ingredients ?? []).forEach((childId) => {
       const child = itemById.get(childId);
@@ -329,7 +345,7 @@ function buildFrameNetwork(nodesById, laidOutNodes, contentIds = [], frameWidth 
 
   });
 
-  return { items, edges, inputSeparatorX };
+  return { items, edges, inputSeparatorX, outputSeparatorX };
 }
 
 function getConnectionAnchor(parentId, childId, side, flowNodes, nodesById) {

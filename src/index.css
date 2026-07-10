@@ -265,6 +265,10 @@ button:disabled {
   stroke-width: 1.5;
 }
 
+.frame-network-edges .frame-network-edge {
+  marker-end: url(#frame-arrow);
+}
+
 .frame-network-edges .frame-network-separator {
   stroke: rgba(183, 199, 193, 0.48);
   stroke-width: 1;
