@@ -215,7 +215,7 @@ button:disabled {
 
 .tile-data-row {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
+  grid-template-columns: 160px minmax(0, 1fr);
   gap: 6px;
   align-items: center;
 }
@@ -224,6 +224,7 @@ button:disabled {
   color: #9eb1aa;
   font-size: 10px;
   font-weight: 800;
+  line-height: 1.15;
 }
 
 .hidden-input {
@@ -232,7 +233,7 @@ button:disabled {
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
+  grid-template-columns: minmax(0, 1fr) 340px;
   min-height: 0;
 }
 

@@ -1,7 +1,14 @@
 import { useState } from 'react';
 import { getParents, toNodeArray } from '../logic/treeUtils.js';
 
-const DATA_ROW_COUNT = 20;
+const DATA_ROW_TITLES = [
+  'Water (lbs/min)', 'Ethanol (lbs/min)', 'CO2 (lbs/min)', 'Starch (lbs/min)', 'DP2+ (lbs/min)',
+  'Dextrose (lbs/min)', 'Protein (lbs/min)', 'Soluble Protein (lbs/min)', 'Fiber (lbs/min)', 'Free Oil (lbs/min)',
+  'Bound Oil (lbs/min)', 'Fatty Acids (lbs/min)', 'Glycerol (lbs/min)', 'Organic Acids (lbs/min)', 'Sulfates (lbs/min)',
+  'Ash - Other (lbs/min)', 'Air (lbs/min)', 'Temp (F)', 'Pressure (psia)', 'Volumetric Flow (CFM)',
+  'Volumetric Flow (gpm)', 'Mass Flow (lbs/min)', 'Density (lbs/gal)', 'Specific Gravity (sp gr)', 'Specific Heat',
+  'Hvap', 'DS', 'Pipe Size (in)', 'Velocity (ft/sec)',
+];
 
 export default function PropertyPanel({
   selectedId,
@@ -84,16 +91,16 @@ export default function PropertyPanel({
         ) : selected ? (
           <div className="tile-data-panel">
             <div className="tile-data-id">{selected.id}</div>
-            {Array.from({ length: DATA_ROW_COUNT }, (_, index) => (
+            {DATA_ROW_TITLES.map((title, index) => (
               <label className="tile-data-row" key={`${selected.id}-data-${index}`}>
-                <span>XXXX</span>
+                <span>{title}</span>
                 <input
                   type="text"
                   value={selected.dataRows?.[index] ?? ''}
                   placeholder="Enter a value"
                   onChange={(event) => {
                     const nextRows = Array.from(
-                      { length: DATA_ROW_COUNT },
+                      { length: DATA_ROW_TITLES.length },
                       (_, rowIndex) => selected.dataRows?.[rowIndex] ?? '',
                     );
                     nextRows[index] = event.target.value;

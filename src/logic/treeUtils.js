@@ -13,7 +13,7 @@ export function createNode(id, options = {}) {
     isFrame: Boolean(options.isFrame),
     frameTitle: options.frameTitle,
     frameContentIds: options.frameContentIds ?? [],
-    dataRows: options.dataRows ?? Array.from({ length: 20 }, () => ''),
+    dataRows: options.dataRows ?? Array.from({ length: 29 }, () => ''),
     width: options.width,
     height: options.height,
   };

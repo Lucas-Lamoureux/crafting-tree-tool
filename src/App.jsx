@@ -187,6 +187,12 @@ function layoutFrameContent(nodesById, contentIds = []) {
     if (!tierById.has(id)) tierById.set(id, 0);
   });
 
+  const outputIds = getFrameSideTiles(nodesById, ids).outputs
+    .map((tile) => tile.id)
+    .filter((id) => tierById.has(id));
+  const finalTier = Math.max(...tierById.values(), 0);
+  outputIds.forEach((id) => tierById.set(id, finalTier));
+
   const tiers = [...new Set(tierById.values())].sort((a, b) => a - b);
   const tierGroups = new Map();
   ids.forEach((id) => {
