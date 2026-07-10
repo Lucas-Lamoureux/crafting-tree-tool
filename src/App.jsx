@@ -708,7 +708,7 @@ export default function App() {
           isBlock: Boolean(nodesById[node.id]?.isBlock),
           isFrame: Boolean(nodesById[node.id]?.isFrame),
           frameTitle: nodesById[node.id]?.frameTitle,
-          ioRole: getTileIoRole(nodesById, node.id),
+          ioRole: nodesById[node.id]?.isFrame ? null : getTileIoRole(nodesById, node.id),
           frameContents: (nodesById[node.id]?.frameContentIds ?? (nodesById[node.id]?.frameContentId ? [nodesById[node.id]?.frameContentId] : []))
             .map((id) => ({ id })),
           frameNetwork: buildFrameNetwork(
@@ -1471,7 +1471,7 @@ export default function App() {
       [frameId]: {
         ...current[frameId],
         frameContentIds: [...new Set([...existingIds, ...contentIds])],
-        width: Math.max(current[frameId].width ?? 240, contentWidth * 3),
+        width: Math.max(180, contentWidth + 128),
         height: Math.max(current[frameId].height ?? 180, Math.ceil(contentHeight / 0.9)),
       },
     }));
