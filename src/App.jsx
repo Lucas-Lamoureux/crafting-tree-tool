@@ -343,23 +343,6 @@ function buildFrameNetwork(nodesById, laidOutNodes, contentIds = [], frameWidth 
   }
 
   const tiers = [...new Set(tierById.values())].sort((a, b) => a - b);
-  const tierWidths = tiers.map((tier) => Math.max(
-    ...items.filter((item) => tierById.get(item.id) === tier).map((item) => item.width),
-  ));
-  const totalTierWidth = tierWidths.reduce((sum, width) => sum + width, 0);
-  const tierGap = tiers.length > 1
-    ? Math.max(2, (networkWidth - edgeInset * 2 - totalTierWidth) / (tiers.length - 1))
-    : 0;
-  const tierX = new Map();
-  let nextTierX = edgeInset;
-  tiers.forEach((tier, index) => {
-    tierX.set(tier, nextTierX);
-    nextTierX += tierWidths[index] + tierGap;
-  });
-
-  items.forEach((item) => {
-    item.x = tierX.get(tierById.get(item.id)) ?? item.x;
-  });
 
   const edges = [];
   const nextTierItems = items.filter((item) => inputItems.some((input) => (
