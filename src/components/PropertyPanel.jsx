@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { getParents, toNodeArray } from '../logic/treeUtils.js';
 
+const DATA_ROW_COUNT = 20;
+
 export default function PropertyPanel({
   selectedId,
   nodesById,
@@ -82,22 +84,24 @@ export default function PropertyPanel({
         ) : selected ? (
           <div className="tile-data-panel">
             <div className="tile-data-id">{selected.id}</div>
-            {(selected.dataRows ?? []).map((value, index) => (
-              <input
-                key={`${selected.id}-data-${index}`}
-                type="text"
-                value={value}
-                placeholder="Enter a value"
-                onChange={(event) => {
-                  const nextRows = [...(selected.dataRows ?? [])];
-                  nextRows[index] = event.target.value;
-                  onUpdateData(selected.id, nextRows);
-                }}
-              />
+            {Array.from({ length: DATA_ROW_COUNT }, (_, index) => (
+              <label className="tile-data-row" key={`${selected.id}-data-${index}`}>
+                <span>XXXX</span>
+                <input
+                  type="text"
+                  value={selected.dataRows?.[index] ?? ''}
+                  placeholder="Enter a value"
+                  onChange={(event) => {
+                    const nextRows = Array.from(
+                      { length: DATA_ROW_COUNT },
+                      (_, rowIndex) => selected.dataRows?.[rowIndex] ?? '',
+                    );
+                    nextRows[index] = event.target.value;
+                    onUpdateData(selected.id, nextRows);
+                  }}
+                />
+              </label>
             ))}
-            <button onClick={() => onUpdateData(selected.id, [...(selected.dataRows ?? []), ''])}>
-              Add Row
-            </button>
           </div>
         ) : (
           <p className="muted">Select a tile to view its data.</p>

@@ -38,6 +38,18 @@ const DEFAULT_TILE_WIDTH = 55;
 const TILE_LABEL_PADDING = 26;
 const AVERAGE_CHARACTER_WIDTH = 7.4;
 
+function getFrameArrowPoints(edge) {
+  const angle = Math.atan2(edge.y2 - edge.y1, edge.x2 - edge.x1);
+  const midX = (edge.x1 + edge.x2) / 2;
+  const midY = (edge.y1 + edge.y2) / 2;
+  const size = 7;
+  const backX = midX - Math.cos(angle) * size;
+  const backY = midY - Math.sin(angle) * size;
+  const sideX = Math.sin(angle) * size * 0.55;
+  const sideY = -Math.cos(angle) * size * 0.55;
+  return `${midX},${midY} ${backX + sideX},${backY + sideY} ${backX - sideX},${backY - sideY}`;
+}
+
 function getTileWidth(data) {
   if (data.isBlock || data.isFrame) {
     return data.width;
@@ -122,11 +134,6 @@ export default function TreeNode({ data, selected }) {
             {data.frameNetwork?.items?.length > 0 ? (
               <div className="frame-network">
                 <svg className="frame-network-edges" aria-hidden="true">
-                  <defs>
-                    <marker id="frame-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto" markerUnits="strokeWidth">
-                      <path d="M0,0 L7,3.5 L0,7 z" fill="#9ab0a8" />
-                    </marker>
-                  </defs>
                   {data.frameNetwork.inputSeparatorX != null && (
                     <line
                       className="frame-network-separator"
@@ -146,14 +153,14 @@ export default function TreeNode({ data, selected }) {
                     />
                   )}
                   {data.frameNetwork.edges.map((edge) => (
-                    <line
-                      key={edge.id}
-                      className="frame-network-edge"
-                      x1={edge.x1}
-                      y1={edge.y1}
-                      x2={edge.x2}
-                      y2={edge.y2}
-                      onContextMenu={(event) => {
+                    <g key={edge.id}>
+                      <line
+                        className="frame-network-edge"
+                        x1={edge.x1}
+                        y1={edge.y1}
+                        x2={edge.x2}
+                        y2={edge.y2}
+                        onContextMenu={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
                         data.onOpenEdgeMenu?.({
@@ -164,8 +171,10 @@ export default function TreeNode({ data, selected }) {
                           x: event.clientX,
                           y: event.clientY,
                         });
-                      }}
-                    />
+                        }}
+                      />
+                      <polygon className="frame-network-arrow" points={getFrameArrowPoints(edge)} />
+                    </g>
                   ))}
                 </svg>
                 {data.frameNetwork.items.map((tile) => (

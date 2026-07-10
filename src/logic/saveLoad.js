@@ -24,7 +24,7 @@ export function serializeProject(project) {
       isFrame: Boolean(node.isFrame),
       frameTitle: node.frameTitle,
       frameContentIds: node.frameContentIds ?? (node.frameContentId ? [node.frameContentId] : []),
-      dataRows: [...(node.dataRows ?? [])],
+      dataRows: Array.from({ length: 20 }, (_, index) => String(node.dataRows?.[index] ?? '')),
       width: node.width,
       height: node.height,
     }));
@@ -118,7 +118,7 @@ export function parseProject(jsonText) {
           ? rawNode.frameContentIds.map(normalizeId).filter(Boolean)
           : [normalizeId(rawNode.frameContentId)].filter(Boolean))
         : [],
-      dataRows: Array.isArray(rawNode.dataRows) ? rawNode.dataRows.map((value) => String(value ?? '')) : [],
+      dataRows: Array.from({ length: 20 }, (_, index) => String(rawNode.dataRows?.[index] ?? '')),
       width: rawNode.isBlock || rawNode.isFrame ? clampNodeSize(rawNode.width, 55) : undefined,
       height: rawNode.isBlock || rawNode.isFrame ? clampNodeSize(rawNode.height, 32) : undefined,
     };

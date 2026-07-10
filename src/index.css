@@ -213,6 +213,19 @@ button:disabled {
   color: #e7eee9;
 }
 
+.tile-data-row {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+}
+
+.tile-data-row > span {
+  color: #9eb1aa;
+  font-size: 10px;
+  font-weight: 800;
+}
+
 .hidden-input {
   display: none;
 }
@@ -240,6 +253,11 @@ button:disabled {
 
 .react-flow__edge-path {
   stroke: #81958f;
+}
+
+.dependency-arrow {
+  fill: #9ab0a8;
+  pointer-events: none;
 }
 
 .tree-node {
@@ -343,8 +361,12 @@ button:disabled {
 }
 
 .frame-network-edges .frame-network-edge {
-  marker-end: url(#frame-arrow);
   pointer-events: stroke;
+}
+
+.frame-network-arrow {
+  fill: #9ab0a8;
+  pointer-events: none;
 }
 
 .frame-network-edges .frame-network-separator {

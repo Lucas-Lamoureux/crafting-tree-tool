@@ -8,6 +8,7 @@ import {
   ReactFlowProvider,
 } from '@xyflow/react';
 import TreeNode from './TreeNode.jsx';
+import DependencyEdge from './DependencyEdge.jsx';
 import TextBlockNode from './TextBlockNode.jsx';
 import BoundaryNode from './BoundaryNode.jsx';
 import ContextMenu from './ContextMenu.jsx';
@@ -18,6 +19,10 @@ const nodeTypes = {
   boundary: BoundaryNode,
   treeNode: TreeNode,
   textBlock: TextBlockNode,
+};
+
+const edgeTypes = {
+  dependency: DependencyEdge,
 };
 
 const DEFAULT_TILE_WIDTH = 55;
@@ -457,6 +462,7 @@ function TreeCanvasInner({
         nodes={[...boundaryNodes, ...localNodes]}
         edges={edges}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         minZoom={0.25}
         maxZoom={2.2}
         fitView
