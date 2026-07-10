@@ -244,6 +244,23 @@ function layoutFrameContent(nodesById, contentIds = []) {
   return positions;
 }
 
+function layoutMasterFrameContent(nodesById, contentIds = []) {
+  const frameIds = contentIds.filter((id) => nodesById[id]?.isFrame);
+
+  if (frameIds.length === 0) {
+    return {};
+  }
+
+  const sectionWidth = Math.max(...frameIds.map((id) => getNodeWidth(nodesById, id)));
+  return Object.fromEntries(frameIds.map((id, index) => [
+    id,
+    {
+      x: 20 + index * (sectionWidth + 10),
+      y: 20,
+    },
+  ]));
+}
+
 function getFramePositionBounds(nodesById, positions, ids) {
   const positionedIds = ids.filter((id) => positions[id] && nodesById[id]);
   if (positionedIds.length === 0) return null;
@@ -256,7 +273,41 @@ function getFramePositionBounds(nodesById, positions, ids) {
   };
 }
 
-function buildFrameNetwork(nodesById, laidOutNodes, contentIds = [], frameWidth = 0) {
+function buildFrameNetwork(nodesById, laidOutNodes, contentIds = [], frameWidth = 0, isMasterFrame = false) {
+  if (isMasterFrame) {
+    const frameIds = contentIds.filter((id) => nodesById[id]?.isFrame);
+
+    if (frameIds.length === 0) {
+      return { items: [], edges: [], crossEdges: [], sectionSeparators: [] };
+    }
+
+    const sectionWidth = Math.max(...frameIds.map((id) => getNodeWidth(nodesById, id)));
+    const sectionHeight = Math.max(...frameIds.map((id) => getNodeHeight(nodesById, id)));
+    const items = frameIds.map((id, index) => ({
+      id,
+      isFrame: true,
+      frameTitle: nodesById[id].frameTitle || id,
+      x: 10 + index * (sectionWidth + 10),
+      y: 10,
+      width: sectionWidth,
+      height: sectionHeight,
+      frameNetwork: buildFrameNetwork(
+        nodesById,
+        laidOutNodes,
+        nodesById[id].frameContentIds ?? [],
+        nodesById[id].width,
+        Boolean(nodesById[id].isMasterFrame),
+      ),
+    }));
+
+    return {
+      items,
+      edges: [],
+      crossEdges: [],
+      sectionSeparators: frameIds.slice(0, -1).map((_, index) => 10 + (index + 1) * sectionWidth + index * 10 + 5),
+    };
+  }
+
   const contentSet = new Set(contentIds);
   const sourceNodes = laidOutNodes.filter((node) => contentSet.has(node.id));
 
@@ -268,11 +319,22 @@ function buildFrameNetwork(nodesById, laidOutNodes, contentIds = [], frameWidth 
   const minY = Math.min(...sourceNodes.map((node) => node.position.y));
   const items = sourceNodes.map((node) => ({
     id: node.id,
+    isFrame: Boolean(nodesById[node.id]?.isFrame),
+    frameTitle: nodesById[node.id]?.frameTitle,
     ioRole: getTileIoRole(nodesById, node.id),
     x: node.position.x - minX + 10,
     y: node.position.y - minY + 10,
     width: getNodeWidth(nodesById, node.id),
     height: getNodeHeight(nodesById, node.id),
+    frameNetwork: nodesById[node.id]?.isFrame
+      ? buildFrameNetwork(
+        nodesById,
+        laidOutNodes,
+        nodesById[node.id].frameContentIds ?? [],
+        nodesById[node.id].width,
+        Boolean(nodesById[node.id].isMasterFrame),
+      )
+      : null,
   }));
   const { inputs, outputs } = getFrameSideTiles(nodesById, contentIds);
   const inputIds = new Set(inputs.map((tile) => tile.id));
@@ -844,6 +906,7 @@ export default function App() {
   const [addTileModalOpen, setAddTileModalOpen] = useState(false);
   const [blockModal, setBlockModal] = useState(null);
   const [frameModalOpen, setFrameModalOpen] = useState(false);
+  const [frameModalType, setFrameModalType] = useState('frame');
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [message, setMessage] = useState('Ready');
   const flowRef = useRef(null);
@@ -911,6 +974,7 @@ export default function App() {
           layoutDirection: directionByNode[node.id] ?? 'right',
           isBlock: Boolean(nodesById[node.id]?.isBlock),
           isFrame: Boolean(nodesById[node.id]?.isFrame),
+          isMasterFrame: Boolean(nodesById[node.id]?.isMasterFrame),
           frameTitle: nodesById[node.id]?.frameTitle,
           ioRole: nodesById[node.id]?.isFrame ? null : getTileIoRole(nodesById, node.id),
           frameContents: (nodesById[node.id]?.frameContentIds ?? (nodesById[node.id]?.frameContentId ? [nodesById[node.id]?.frameContentId] : []))
@@ -924,6 +988,7 @@ export default function App() {
             laidOutNodes,
             nodesById[node.id]?.frameContentIds ?? [],
             nodesById[node.id]?.width,
+            Boolean(nodesById[node.id]?.isMasterFrame),
           ),
           width: nodesById[node.id]?.width,
           height: nodesById[node.id]?.height,
@@ -942,7 +1007,14 @@ export default function App() {
       draggable: true,
     }));
 
-    const frameContentIds = new Set(Object.values(nodesById).flatMap((item) => item.frameContentIds ?? (item.frameContentId ? [item.frameContentId] : [])));
+    const frameContentIds = new Set();
+    Object.values(nodesById).forEach((item) => {
+      if (!item.isFrame) return;
+      (item.frameContentIds ?? (item.frameContentId ? [item.frameContentId] : [])).forEach((contentId) => {
+        frameContentIds.add(contentId);
+        getDescendants(nodesById, contentId).forEach((descendantId) => frameContentIds.add(descendantId));
+      });
+    });
     return [...treeNodes.filter((node) => !frameContentIds.has(node.id)), ...textBlockNodes];
   },
     [checkedIds, collapsedIds, directionByNode, manualPositions, nodesById, rootId, selectedIds, textBlocks, treeDirections],
@@ -1658,6 +1730,12 @@ export default function App() {
   }, []);
 
   const handleAddFrame = useCallback(() => {
+    setFrameModalType('frame');
+    setFrameModalOpen(true);
+  }, []);
+
+  const handleAddMasterFrame = useCallback(() => {
+    setFrameModalType('master');
     setFrameModalOpen(true);
   }, []);
 
@@ -1756,6 +1834,7 @@ export default function App() {
 
     const result = addNode(nodesById, normalizedId, {
       isFrame: true,
+      isMasterFrame: frameModalType === 'master',
       frameTitle: title,
       width,
       height,
@@ -1767,21 +1846,35 @@ export default function App() {
       setRootId((current) => current ?? normalizedId);
       setFrameModalOpen(false);
     }
-  }, [nodesById, setResult, textBlocks]);
+  }, [frameModalType, nodesById, setResult, textBlocks]);
 
   const handleDropTileIntoFrame = useCallback((tileId, frameId) => {
     const tile = nodesById[tileId];
     const frame = nodesById[frameId];
     if (!tile || !frame?.isFrame || tileId === frameId) return;
 
+    if (frame.isMasterFrame && !tile.isFrame) {
+      setMessage('Master Frames only accept Frames in their middle section.');
+      return;
+    }
+
     const existingIds = frame.frameContentIds ?? (frame.frameContentId ? [frame.frameContentId] : []);
     if (existingIds.includes(tileId)) return;
-    const contentIds = [tileId, ...getDescendants(nodesById, tileId)];
+    const contentIds = frame.isMasterFrame
+      ? [tileId]
+      : [tileId, ...getDescendants(nodesById, tileId)];
     const allContentIds = [...new Set([...existingIds, ...contentIds])];
-    const positions = layoutFrameContent(nodesById, allContentIds);
+    const positions = frame.isMasterFrame
+      ? layoutMasterFrameContent(nodesById, allContentIds)
+      : layoutFrameContent(nodesById, allContentIds);
     const bounds = getFramePositionBounds(nodesById, positions, allContentIds);
-    const contentWidth = bounds ? bounds.maxX - bounds.minX + 40 : 180;
-    const contentHeight = bounds ? bounds.maxY - bounds.minY + 40 : 180;
+    const contentWidth = frame.isMasterFrame
+      ? Math.max(...allContentIds.map((id) => getNodeWidth(nodesById, id)), 180) * allContentIds.length
+        + Math.max(0, allContentIds.length - 1) * 10 + 40
+      : bounds ? bounds.maxX - bounds.minX + 40 : 180;
+    const contentHeight = frame.isMasterFrame
+      ? Math.max(...allContentIds.map((id) => getNodeHeight(nodesById, id)), 180) + 40
+      : bounds ? bounds.maxY - bounds.minY + 40 : 180;
     setNodesById((current) => ({
       ...current,
       [frameId]: {
@@ -2122,6 +2215,7 @@ export default function App() {
         onAddNode={handleAddNode}
         onAddBlock={handleAddBlock}
         onAddFrame={handleAddFrame}
+        onAddMasterFrame={handleAddMasterFrame}
         onFit={() => flowRef.current?.fitView({ padding: 0.25, duration: 350 })}
         fileInputRef={fileInputRef}
         importInputRef={importInputRef}
@@ -2216,6 +2310,7 @@ export default function App() {
         existingIds={new Set([...Object.keys(nodesById), ...Object.keys(textBlocks)])}
         onCancel={() => setFrameModalOpen(false)}
         onSubmit={handleCreateFrame}
+        itemLabel={frameModalType === 'master' ? 'Master Frame' : 'Frame'}
       />
 
       <SaveProjectModal

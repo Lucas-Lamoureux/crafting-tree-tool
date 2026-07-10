@@ -15,7 +15,7 @@ export default function DependencyEdge({ sourceX, sourceY, targetX, targetY, sty
   return (
     <>
       <BaseEdge path={path} style={style} />
-      <polygon className="dependency-arrow" points={points} />
+      <polygon className="dependency-arrow" points={points} style={{ fill: style?.stroke ?? '#9ab0a8' }} />
     </>
   );
 }

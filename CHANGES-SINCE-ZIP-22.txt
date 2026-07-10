@@ -1,0 +1,5 @@
+Changes since zip 22:
+
+- Added a dashed divider between DP2+ (lbs/min) and Dextrose (lbs/min).
+- Added a thin divider between Fiber (lbs/min) and Free Oil (lbs/min).
+- Updated the website version to #38.

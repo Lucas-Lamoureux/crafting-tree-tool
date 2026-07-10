@@ -1,6 +1,6 @@
 import SearchBar from './SearchBar.jsx';
 
-const EDIT_VERSION = 37;
+const EDIT_VERSION = 43;
 
 export default function Toolbar({
   nodeCount,
@@ -12,6 +12,7 @@ export default function Toolbar({
   onAddNode,
   onAddBlock,
   onAddFrame,
+  onAddMasterFrame,
   onFit,
   fileInputRef,
   importInputRef,
@@ -38,6 +39,7 @@ export default function Toolbar({
             <button onClick={onAddNode}>Tile</button>
             <button onClick={onAddBlock}>Block</button>
             <button onClick={onAddFrame}>Frame</button>
+            <button onClick={onAddMasterFrame}>Master Frame</button>
           </div>
         </details>
         <button onClick={onFit}>Fit</button>

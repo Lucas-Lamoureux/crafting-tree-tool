@@ -22,6 +22,7 @@ export function serializeProject(project) {
       ingredients: [...node.ingredients],
       isBlock: Boolean(node.isBlock),
       isFrame: Boolean(node.isFrame),
+      isMasterFrame: Boolean(node.isMasterFrame),
       frameTitle: node.frameTitle,
       frameContentIds: node.frameContentIds ?? (node.frameContentId ? [node.frameContentId] : []),
       dataRows: Array.from({ length: 29 }, (_, index) => String(node.dataRows?.[index] ?? '')),
@@ -112,6 +113,7 @@ export function parseProject(jsonText) {
       ingredients,
       isBlock: Boolean(rawNode.isBlock),
       isFrame: Boolean(rawNode.isFrame),
+      isMasterFrame: Boolean(rawNode.isMasterFrame),
       frameTitle: rawNode.isFrame ? String(rawNode.frameTitle ?? id) : undefined,
       frameContentIds: rawNode.isFrame
         ? (Array.isArray(rawNode.frameContentIds)

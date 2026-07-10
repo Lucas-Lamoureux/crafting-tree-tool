@@ -61,6 +61,64 @@ function getTileWidth(data) {
   );
 }
 
+function FramePreview({ item, data, onSelect, onOpenMenu }) {
+  const select = (event, id) => {
+    event.stopPropagation();
+    onSelect(id, event.ctrlKey || event.metaKey || event.shiftKey ? 'toggle' : 'replace');
+  };
+
+  const openMenu = (event, id) => {
+    event.preventDefault();
+    event.stopPropagation();
+    select(event, id);
+    onOpenMenu(event, id);
+  };
+
+  return (
+    <div
+      className="frame-preview"
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => select(event, item.id)}
+      onContextMenu={(event) => openMenu(event, item.id)}
+    >
+      <strong className="frame-preview-title">{item.frameTitle || item.id}</strong>
+      <div className="frame-preview-content">
+        {(item.frameNetwork?.items ?? []).map((child) => (
+          child.isFrame ? (
+            <FramePreview
+              key={child.id}
+              item={child}
+              data={data}
+              onSelect={onSelect}
+              onOpenMenu={onOpenMenu}
+            />
+          ) : (
+            <span
+              className={tileClassNameForPreview(child.id, data)}
+              key={child.id}
+              style={{ left: child.x, top: child.y, width: child.width, height: child.height }}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => select(event, child.id)}
+              onContextMenu={(event) => openMenu(event, child.id)}
+            >
+              {child.id}
+            </span>
+          )
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function tileClassNameForPreview(id, data) {
+  return [
+    'frame-tile',
+    'frame-preview-tile',
+    data.selectedIds?.has(id) ? 'is-selected' : '',
+    'nodrag',
+  ].filter(Boolean).join(' ');
+}
+
 export default function TreeNode({ data, selected }) {
   const handles = handlePositions[data.layoutDirection] ?? handlePositions.right;
   const tileWidth = getTileWidth(data);
@@ -152,10 +210,36 @@ export default function TreeNode({ data, selected }) {
                       y2="100%"
                     />
                   )}
+                  {(data.frameNetwork.sectionSeparators ?? []).map((x) => (
+                    <line
+                      className="frame-network-separator"
+                      key={`section-${x}`}
+                      x1={x}
+                      y1="0"
+                      x2={x}
+                      y2="100%"
+                    />
+                  ))}
                   {data.frameNetwork.edges.map((edge) => (
                     <g key={edge.id}>
+                      {(() => {
+                        const isParentConnection = data.selectedIds?.has(edge.target);
+                        const isIngredientConnection = data.selectedIds?.has(edge.source);
+                        const edgeClass = [
+                          'frame-network-edge',
+                          isParentConnection ? 'is-parent-connection' : '',
+                          isIngredientConnection ? 'is-ingredient-connection' : '',
+                        ].filter(Boolean).join(' ');
+                        const arrowClass = [
+                          'frame-network-arrow',
+                          isParentConnection ? 'is-parent-connection' : '',
+                          isIngredientConnection ? 'is-ingredient-connection' : '',
+                        ].filter(Boolean).join(' ');
+
+                        return (
+                          <>
                       <line
-                        className="frame-network-edge"
+                        className={edgeClass}
                         x1={edge.x1}
                         y1={edge.y1}
                         x2={edge.x2}
@@ -173,22 +257,40 @@ export default function TreeNode({ data, selected }) {
                         });
                         }}
                       />
-                      <polygon className="frame-network-arrow" points={getFrameArrowPoints(edge)} />
+                      <polygon className={arrowClass} points={getFrameArrowPoints(edge)} />
+                          </>
+                        );
+                      })()}
                     </g>
                   ))}
                 </svg>
                 {data.frameNetwork.items.map((tile) => (
-                  <span
-                    className={tileClassName(tile.id, 'frame-network-tile')}
-                    key={tile.id}
-                    style={{ left: tile.x, top: tile.y, width: tile.width, height: tile.height }}
-                    onPointerDown={(event) => event.stopPropagation()}
-                    onClick={(event) => selectTile(event, tile.id)}
-                    onContextMenu={(event) => openTileMenu(event, tile.id)}
-                  >
-                    {tile.id}
-                    {tile.ioRole && <span className="frame-tile-io">{tile.ioRole}</span>}
-                  </span>
+                  tile.isFrame ? (
+                    <div
+                      className="frame-network-tile frame-network-frame"
+                      key={tile.id}
+                      style={{ left: tile.x, top: tile.y, width: tile.width, height: tile.height }}
+                    >
+                      <FramePreview
+                        item={tile}
+                        data={data}
+                        onSelect={(id, mode) => data.onSelectTile?.(id, mode)}
+                        onOpenMenu={(event, id) => openTileMenu(event, id)}
+                      />
+                    </div>
+                  ) : (
+                    <span
+                      className={tileClassName(tile.id, 'frame-network-tile')}
+                      key={tile.id}
+                      style={{ left: tile.x, top: tile.y, width: tile.width, height: tile.height }}
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={(event) => selectTile(event, tile.id)}
+                      onContextMenu={(event) => openTileMenu(event, tile.id)}
+                    >
+                      {tile.id}
+                      {tile.ioRole && <span className="frame-tile-io">{tile.ioRole}</span>}
+                    </span>
+                  )
                 ))}
               </div>
             ) : data.frameContents?.length > 0

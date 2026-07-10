@@ -1,0 +1,11 @@
+Changes since zip 23:
+
+- Added Master Frame as a new item in the Add menu.
+- Added Master Frame type persistence through save, load, and ID rename operations.
+- Master Frames use the same frame sizing, selection, dragging, and layout behavior as Frames.
+- Master Frames accept Frames in their middle section and reject regular tiles there.
+- Added equal-width horizontal sections for multiple Frames inside a Master Frame.
+- Added dashed separators between Frames inside a Master Frame.
+- Added nested Frame previews that keep each contained Frame's title and internal contents visible.
+- Kept nested Frame networks inside their Master Frame instead of leaving their tiles on the main canvas.
+- Updated the website version number to #43.

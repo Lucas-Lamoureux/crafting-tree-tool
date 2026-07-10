@@ -92,7 +92,10 @@ export default function PropertyPanel({
           <div className="tile-data-panel">
             <div className="tile-data-id">{selected.id}</div>
             {DATA_ROW_TITLES.map((title, index) => (
-              <label className="tile-data-row" key={`${selected.id}-data-${index}`}>
+              <label
+                className={`tile-data-row ${index === 5 ? 'data-dashed-divider' : ''} ${index === 9 ? 'data-fine-divider' : ''}`}
+                key={`${selected.id}-data-${index}`}
+              >
                 <span>{title}</span>
                 <input
                   type="text"

@@ -18,6 +18,7 @@ export default function FrameModal({
   existingIds,
   onCancel,
   onSubmit,
+  itemLabel = 'Frame',
 }) {
   const [title, setTitle] = useState('');
   const [width, setWidth] = useState(String(DEFAULT_WIDTH));
@@ -63,18 +64,18 @@ export default function FrameModal({
     <div className="modal-layer" role="presentation" onMouseDown={onCancel}>
       <form className="tile-modal block-modal" onSubmit={handleSubmit} onMouseDown={(event) => event.stopPropagation()}>
         <header>
-          <h2>Add Frame</h2>
+          <h2>Add {itemLabel}</h2>
           <button type="button" aria-label="Close" onClick={onCancel}>x</button>
         </header>
 
         <label>
-          <span>Frame Title</span>
+          <span>{itemLabel} Title</span>
           <input
             ref={firstInputRef}
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="Enter a unique title"
-            aria-label="Frame title"
+            aria-label={`${itemLabel} title`}
           />
         </label>
 
@@ -87,7 +88,7 @@ export default function FrameModal({
               max="600"
               value={width}
               onChange={(event) => setWidth(event.target.value)}
-              aria-label="Frame total width in pixels"
+              aria-label={`${itemLabel} total width in pixels`}
             />
           </label>
           <label>
@@ -98,7 +99,7 @@ export default function FrameModal({
               max="600"
               value={height}
               onChange={(event) => setHeight(event.target.value)}
-              aria-label="Frame total height in pixels"
+              aria-label={`${itemLabel} total height in pixels`}
             />
           </label>
         </div>
@@ -107,7 +108,7 @@ export default function FrameModal({
 
         <footer>
           <button type="button" onClick={onCancel}>Cancel</button>
-          <button type="submit" disabled={!canSubmit}>Create Frame</button>
+          <button type="submit" disabled={!canSubmit}>Create {itemLabel}</button>
         </footer>
       </form>
     </div>

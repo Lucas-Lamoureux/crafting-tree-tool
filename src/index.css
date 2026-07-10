@@ -222,9 +222,21 @@ button:disabled {
 
 .tile-data-row > span {
   color: #9eb1aa;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   line-height: 1.15;
+}
+
+.tile-data-row.data-dashed-divider {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed #81958f;
+}
+
+.tile-data-row.data-fine-divider {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid #81958f;
 }
 
 .hidden-input {
@@ -233,7 +245,7 @@ button:disabled {
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-columns: minmax(0, 1fr) 370px;
   min-height: 0;
 }
 
@@ -365,9 +377,27 @@ button:disabled {
   pointer-events: stroke;
 }
 
+.frame-network-edges .frame-network-edge.is-parent-connection {
+  stroke: #f0a15b;
+  stroke-width: 3;
+}
+
+.frame-network-edges .frame-network-edge.is-ingredient-connection {
+  stroke: #b98cff;
+  stroke-width: 3;
+}
+
 .frame-network-arrow {
   fill: #9ab0a8;
   pointer-events: none;
+}
+
+.frame-network-arrow.is-parent-connection {
+  fill: #f0a15b;
+}
+
+.frame-network-arrow.is-ingredient-connection {
+  fill: #b98cff;
 }
 
 .frame-network-edges .frame-network-separator {
@@ -401,6 +431,52 @@ button:disabled {
   position: absolute;
   z-index: 3;
   box-sizing: border-box;
+}
+
+.frame-network-frame {
+  padding: 0;
+  border: 1px solid #78938a;
+  background: #263933;
+  overflow: hidden;
+}
+
+.frame-preview {
+  display: grid;
+  grid-template-rows: 18px minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  color: #f0f5f2;
+  cursor: pointer;
+}
+
+.frame-preview-title {
+  display: flex;
+  align-items: center;
+  padding: 0 5px;
+  border-bottom: 1px solid #78938a;
+  background: #354b43;
+  font-size: 9px;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.frame-preview-content {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.frame-preview-tile {
+  position: absolute;
+  min-width: 0;
+  min-height: 22px;
+  padding: 0 5px;
+  font-size: 8px;
 }
 
 .frame-tile.is-selected {
@@ -507,7 +583,7 @@ button:disabled {
   border-radius: 999px;
   background: #69c993;
   color: #10201b;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
 }
 

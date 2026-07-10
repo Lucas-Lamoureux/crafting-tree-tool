@@ -136,13 +136,28 @@ function TreeCanvasInner({
     }
   }, [beginConnectorFallback]);
 
-  const edges = useMemo(
-    () => [
-      ...deriveEdges(nodesById, collapsedIds, rootId, connectionSides),
-      ...deriveBoundaryEdges(boundaryLinks, boundaries),
-    ],
-    [boundaries, boundaryLinks, nodesById, collapsedIds, rootId, connectionSides],
-  );
+  const edges = useMemo(() => {
+    const treeEdges = deriveEdges(nodesById, collapsedIds, rootId, connectionSides).map((edge) => {
+      const isParentConnection = edge.target === selectedId;
+      const isIngredientConnection = edge.source === selectedId;
+
+      if (!isParentConnection && !isIngredientConnection) {
+        return edge;
+      }
+
+      const color = isParentConnection ? '#f0a15b' : '#b98cff';
+      return {
+        ...edge,
+        style: {
+          ...edge.style,
+          stroke: color,
+          strokeWidth: 3,
+        },
+      };
+    });
+
+    return [...treeEdges, ...deriveBoundaryEdges(boundaryLinks, boundaries)];
+  }, [boundaries, boundaryLinks, nodesById, collapsedIds, rootId, connectionSides, selectedId]);
 
   const boundaryRoles = useMemo(() => {
     const roles = {};
